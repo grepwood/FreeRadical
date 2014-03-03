@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#include "include/dataio/BigEndian.h"
+
 uint32_t DAT2DataSize(FILE * DAT2)
 {
 	uint32_t result;
