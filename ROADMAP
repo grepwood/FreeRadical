@@ -6,5 +6,12 @@ Current concerns:
     ** provide an example config even if it has low-level stuff like DMA and IRQ settings for sound devices, we'll just ignore them and rely on SDL2
     ** define config settings for this engine such as fullscreen, resolution, etc
     * extract something meaningful out of a DAT2
+    * draft a DAT2+ that does not use obsolete and obscure formats and is generally easier to work with
+    ** like have images in PNG and APNG rather than FRM and RIX and use PAL to brighten up int24 pixels
     * draft a DAT2 handler where the compression byte can be set to a value higher than 0x01 to indicate different (and likely superior) compression than zlib
     * play the actual Fallout 2 more and document observed behavior
+
+	* find a way to SDL_Load a RIX image
+	** current way of convering RIX to BMP in memory has bodged colors
+	** probably due to not taking a PAL file into account
+	** seeming as nowadays this is a silly way of doing things, DAT2+ will have no support for this
