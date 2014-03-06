@@ -1,8 +1,9 @@
+#include <stdio.h>
 #include <stdint.h>
 
 /* Generic function for reading a DWORD off an alien endian */
 
-uint32_t ReadAlienEndian(FILE * gah)
+uint32_t ReadAlienEndian32(FILE * gah)
 {
         union
         {
@@ -12,6 +13,19 @@ uint32_t ReadAlienEndian(FILE * gah)
         foo = {0x00000000};
         foo.c[3] = fgetc(gah);
         foo.c[2] = fgetc(gah);
+        foo.c[1] = fgetc(gah);
+        foo.c[0] = fgetc(gah);
+        return foo.result;
+}
+
+uint16_t ReadAlienEndian16(FILE * gah)
+{
+        union
+        {
+                uint16_t result;
+                char c[2];
+        }
+        foo = {0x0000};
         foo.c[1] = fgetc(gah);
         foo.c[0] = fgetc(gah);
         return foo.result;
