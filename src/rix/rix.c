@@ -83,9 +83,10 @@ void FalloutRIX2BMPFile(FILE * RIX, FILE * bmp)
 		for(Counter = 0; Counter < 1920; Counter += 3)
 		{
 			Index = 3*fgetc(RIX);
-			OrderedPixel[0] = *(RIXPalette+Index+2);
-			OrderedPixel[1] = *(RIXPalette+Index+1);
-			OrderedPixel[2] = *(RIXPalette+Index);
+			/* Since this is a multiplication of a vector by a scalar, this CAN be paralellized */
+			OrderedPixel[0] = 4*(*(RIXPalette+Index+2));
+			OrderedPixel[1] = 4*(*(RIXPalette+Index+1));
+			OrderedPixel[2] = 4*(*(RIXPalette+Index));
 			memcpy(bitmap+Position+Counter,OrderedPixel,3);
 		}
 	}
@@ -95,8 +96,8 @@ void FalloutRIX2BMPFile(FILE * RIX, FILE * bmp)
 char * FalloutRIX2BMPMem(FILE * RIX)
 {
 	char RIXPalette[768];
-	char * bitmap = malloc(921654);
-	char OrderedPixel[3];
+	char * bitmap = malloc(921654);	/* This is where we store all 640x480x24 pixels */
+	char OrderedPixel[3];		/* We need this because BMP stores in BGR while RIX stores in RGB */
 	int32_t Position;
 	uint16_t Counter;
 	uint16_t Index;
@@ -111,9 +112,10 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 		for(Counter = 0; Counter < 1920; Counter += 3)
 		{
 			Index = 3*fgetc(RIX);
-			OrderedPixel[0] = *(RIXPalette+Index+2);
-			OrderedPixel[1] = *(RIXPalette+Index+1);
-			OrderedPixel[2] = *(RIXPalette+Index);
+			/* Since this is a multiplication of a vector by a scalar, this CAN be paralellized */
+			OrderedPixel[0] = 4*(*(RIXPalette+Index+2));
+			OrderedPixel[1] = 4*(*(RIXPalette+Index+1));
+			OrderedPixel[2] = 4*(*(RIXPalette+Index));
 			memcpy(bitmap+Position+Counter,OrderedPixel,3);
 		}
 	}
