@@ -12,6 +12,5 @@ Current concerns:
     * play the actual Fallout 2 more and document observed behavior
 
 	* find a way to SDL_Load a RIX image
-	** current way of convering RIX to BMP in memory has bodged colors
-	** probably due to not taking a PAL file into account
-	** seeming as nowadays this is a silly way of doing things, DAT2+ will have no support for this
+	** currently this will be handled by manufacturing a Windows Bitmap and converting it to PNG
+	** which is supported by SDL_image library so it can be SDL_Load'ed and eats less space than BMP
