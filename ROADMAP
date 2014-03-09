@@ -11,6 +11,6 @@ Current concerns:
     * draft a DAT2 handler where the compression byte can be set to a value higher than 0x01 to indicate different (and likely superior) compression than zlib
     * play the actual Fallout 2 more and document observed behavior
 
-	* find a way to SDL_Load a RIX image
-	** currently this will be handled by manufacturing a Windows Bitmap and converting it to PNG
-	** which is supported by SDL_image library so it can be SDL_Load'ed and eats less space than BMP
+Stuff that has been dealt with:
+	* displaying splash screens in SDL2
+	* determining host endianess at runtime (useful in handling gamedata and running on niche hardware)
