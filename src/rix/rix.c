@@ -81,6 +81,10 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 	{
 		for(Counter = 0; Counter < 1920; Counter += 3)
 		{
+/* This can be very nicely optimized!
+ * x86 would use MMX/3DNow!	: 1 reg is 64bits long, there are at least 8
+ * PPC would use AltiVec	: 1 reg is 128 bits long, there are at least 32
+ * ARM would use NEON		: 1 reg is 64 bits long, there are 32 */
 			Index = 3*fgetc(RIX);
 			OrderedPixel[0] = 4*(*(RIXPalette+Index+2));
 			OrderedPixel[1] = 4*(*(RIXPalette+Index+1));
