@@ -67,7 +67,6 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 {
 	char RIXPalette[768];
 	char * bitmap = malloc(921654);
-	char OrderedPixel[3];
 	int32_t Position;
 	uint16_t Counter;
 	uint16_t Index;
@@ -86,10 +85,9 @@ char * FalloutRIX2BMPMem(FILE * RIX)
  * PPC would use AltiVec	: 1 reg is 128 bits long, there are at least 32
  * ARM would use NEON		: 1 reg is 64 bits long, there are 32 */
 			Index = 3*fgetc(RIX);
-			OrderedPixel[0] = 4*(*(RIXPalette+Index+2));
-			OrderedPixel[1] = 4*(*(RIXPalette+Index+1));
-			OrderedPixel[2] = 4*(*(RIXPalette+Index));
-			memcpy(bitmap+Position+Counter,OrderedPixel,3);
+			*(bitmap+Position+Counter) = 4*(*(RIXPalette+Index+2));
+			*(bitmap+Position+Counter+1) = 4*(*(RIXPalette+Index+1));
+			*(bitmap+Position+Counter+2) = 4*(*(RIXPalette+Index));
 		}
 	}
 	return bitmap;
