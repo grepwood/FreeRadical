@@ -11,8 +11,8 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 	uint16_t Counter;
 	union
 	{
-		uint16_t w[8];
-		uint64_t q[2];
+		uint16_t w[4];
+		uint64_t q;
 	} Index;
 	union
 	{
@@ -37,16 +37,9 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 			Index.w[1] = fgetc(RIX);
 			Index.w[2] = fgetc(RIX);
 			Index.w[3] = fgetc(RIX);
-			Index.w[4] = fgetc(RIX);
-			Index.w[5] = fgetc(RIX);
-			Index.w[6] = fgetc(RIX);
-			Index.w[7] = fgetc(RIX);
 			__asm__("movq mm0, %0\n"
 					"pmullw mm0, mm7\n"
-					"movq %0, mm0\n" : "=m"(Index.q[0]));
-			__asm__("movq mm1, %0\n"
-					"pmullw mm1, mm7\n"
-					"movq %0, mm1\n" : "=m"(Index.q[1]));
+					"movq %0, mm0\n" : "=m"(Index.q));
 			BGR.b = bitmap+Position+Counter;
 			BGR.b[0] = RIXPalette[Index.w[0]+2];
 			BGR.b[1] = RIXPalette[Index.w[0]+1];
@@ -60,6 +53,13 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 			BGR.b[9] = RIXPalette[Index.w[3]+2];
 			BGR.b[10] = RIXPalette[Index.w[3]+1];
 			BGR.b[11] = RIXPalette[Index.w[3]];
+			Index.w[0] = fgetc(RIX);
+			Index.w[1] = fgetc(RIX);
+			Index.w[2] = fgetc(RIX);
+			Index.w[3] = fgetc(RIX);
+			__asm__("movq mm0, %0\n"
+					"pmullw mm0, mm7\n"
+					"movq %0, mm0\n" : "=m"(Index.q));
 			BGR.b[12] = RIXPalette[Index.w[4]+2];
 			BGR.b[13] = RIXPalette[Index.w[4]+1];
 			BGR.b[14] = RIXPalette[Index.w[4]];
