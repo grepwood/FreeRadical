@@ -66,6 +66,7 @@ char IsFalloutRIX(FILE * Splash) /* File must be set on beginning */
 char * FalloutRIX2BMPMem(FILE * RIX)
 {
 	char RIXPalette[768];
+	size_t * palptr = RIXPalette;
 	char * bitmap = malloc(921654);
 	int32_t Position;
 	uint16_t Counter;
@@ -76,18 +77,19 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 	memcpy(bitmap,bmpheader,54);
 	fseeko(RIX,10,SEEK_SET);
 	fread(RIXPalette,768,1,RIX);
+	for(	Counter = 0, Index = sizeof(size_t), Position = 768/Index;
+		Counter < Position; Counter += Position)
+	{
+		palptr[Counter] *= 4; /* Since each byte is less than 64, this will never cause an overflow */
+	}
 	for(Position = 919734; Position >= 54; Position -= 1920)
 	{
 		for(Counter = 0; Counter < 1920; Counter += 3)
 		{
-/* This can be very nicely optimized!
- * x86 would use MMX/3DNow!	: 1 reg is 64bits long, there are at least 8
- * PPC would use AltiVec	: 1 reg is 128 bits long, there are at least 32
- * ARM would use NEON		: 1 reg is 64 bits long, there are 32 */
 			Index = 3*fgetc(RIX);
-			*(bitmap+Position+Counter) = 4*(*(RIXPalette+Index+2));
-			*(bitmap+Position+Counter+1) = 4*(*(RIXPalette+Index+1));
-			*(bitmap+Position+Counter+2) = 4*(*(RIXPalette+Index));
+			*(bitmap+Position+Counter) = *(RIXPalette+Index+2);
+			*(bitmap+Position+Counter+1) = *(RIXPalette+Index+1);
+			*(bitmap+Position+Counter+2) = *(RIXPalette+Index);
 		}
 	}
 	return bitmap;
