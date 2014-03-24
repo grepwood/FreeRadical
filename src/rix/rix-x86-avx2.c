@@ -64,7 +64,7 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 	char * bitmap = malloc(921654);
 	int32_t Position;
 	uint16_t Counter;
-	uint16_t Index[16] = {4,4,4,4,4,4,4,4}; /* Palette multiplier */
+	uint16_t Index[16] = {4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4}; /* Palette multiplier */
 	char * BGR; /* Helper pointer */
 /* Simple BMP header for a 640x480x24 pic */
 	char bmpheader[54] = {	66,77,54,16,14,0,0,0,0,0,54,0,0,0,40,0,0,0,128,2,0,0,224,1,0,0,
