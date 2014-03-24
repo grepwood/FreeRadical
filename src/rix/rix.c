@@ -66,7 +66,7 @@ char IsFalloutRIX(FILE * Splash) /* File must be set on beginning */
 char * FalloutRIX2BMPMem(FILE * RIX)
 {
 	char RIXPalette[768];
-	size_t * palptr = RIXPalette;
+	size_t * palptr = (size_t *)RIXPalette;
 	char * bitmap = malloc(921654);
 	int32_t Position;
 	uint16_t Counter;
@@ -77,8 +77,9 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 	memcpy(bitmap,bmpheader,54);
 	fseeko(RIX,10,SEEK_SET);
 	fread(RIXPalette,768,1,RIX);
-	for(	Counter = 0, Index = sizeof(size_t), Position = 768/Index;
-		Counter < Position; Counter += Position)
+	Index = sizeof(size_t);
+	Position = 768/Index;
+	for(Counter = 0; Counter < Position; ++Counter)
 	{
 		palptr[Counter] *= 4; /* Since each byte is less than 64, this will never cause an overflow */
 	}
