@@ -59,7 +59,7 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 	union
 	{
 		char B[768];
-		__m128 QW[48];
+		__m256 H[24];
 	} RIXPalette;
 	char * bitmap = malloc(921654);
 	int32_t Position;
@@ -74,11 +74,11 @@ char * FalloutRIX2BMPMem(FILE * RIX)
 	fseek(RIX,10,SEEK_SET);
 	fread(RIXPalette.B,768,1,RIX);
 /* We're going to saturate our RIX palette because this is better to do */
-	for(Counter = 0; Counter < 48; ++Counter)
+	for(Counter = 0; Counter < 24; ++Counter)
 	{
 		__asm__("movaps ymm0, %0\n"
 				"pmullw ymm0, ymm7\n"
-				"movaps %0, ymm0\n" : "=m"(RIXPalette.QW[Counter]));
+				"movaps %0, ymm0\n" : "=m"(RIXPalette.H[Counter]));
 	}
 /* Assigning index multiplier */
 	Index[0] = 3;
