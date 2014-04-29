@@ -155,12 +155,56 @@ void FillSound(struct * FRSound Sound, FILE * ConfigFile)
 {
 	char * line = NULL
 	size_t len;
+// Reading cache_size
 	while(strcmp(line,"cache_size="))
 	{
 		grepline(&line,&len,FileConfig);
 	}
 	Sound.cache_size = strtol(line+11,NULL,10);
-	
+// Reading device
+	while(strcmp(line,"device="))
+	{
+		grepline(&line,&len,FileConfig);
+	}
+	Sound.device = strtol(line+7,NULL,10);
+// Reading initialize
+	while(strcmp(line,"initialize="))
+	{
+	}
+	Sound.initialize = strtol(line+111,NULL,10);
+// Reading irq
+	while(strcmp(line,"irq="))
+	{
+	}
+	Sound.irq = strtol(line+4,NULL,10);
+// Reading master_volume
+	while(strcmp(line,"master_volume="))
+	{
+	}
+	Sound.master_volume = strtol(line+14,NULL,10);
+// Reading music
+	while(strcmp(line,"music="))
+	{
+	}
+	Sound.music = strtol(line+6,NULL,10);
+// Reading music_path1
+	while(strcmp(line,"music_path1="))
+	{
+	}
+	len -= 11;
+	Sound.music_path1 = malloc(len);
+	memset(Sound.music_path1,0,len);
+	strcpy(Sound.music_path1,line+12);
+// Reading music_path2
+	while(strcmp(line,"music_path2="))
+	{
+	}
+	len -= 11;
+	Sound.music_path2 = malloc(len);
+	memset(Sound.music_path2,0,len);
+	strcpy(Sound.music_path2,line+12);
+// Reading music_volume
+	while(strcmp(line,"
 }
 
 void FillConfigStruct(struct * FRConfig Config, FILE * ConfigFile)
