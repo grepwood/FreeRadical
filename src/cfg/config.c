@@ -33,10 +33,10 @@ float AssignFloat(const char * String, FILE * ConfigFile)
 	free(line);
 	return result;
 }
-uint32_t AssignInteger(const char * String, FILE * ConfigFile)
+uint64_t AssignInteger(const char * String, FILE * ConfigFile)
 {
 	char * line = NULL;
-	uint32_t result;
+	uint64_t result;
 	uint8_t LineLen;
 	const uint8_t ArgLen = strlen(String);
 	while(strncmp(line,String,ArgLen))
@@ -106,7 +106,7 @@ void FillSystem(struct * FRSystem System, FILE * ConfigFile)
 	System.critter_patches = AssignString("critter_patches=",ConfigFile);
 	System.cycle_speed_factor = (char)AssignInteger("cycle_speed_factor=",ConfigFile);
 	System.executable = AssignString("executable=",ConfigFile);
-	System.free_space = AssignInteger("free_space=",ConfigFile);
+	System.free_space = (uint32_t)AssignInteger("free_space=",ConfigFile);
 	System.hashing = (char)AssignInteger("hashing=",ConfigFile);
 	System.interrupt_walk = (char)AssignInteger("interrupt_walk=",ConfigFile);
 	System.language = AssignString("language=",ConfigFile);
