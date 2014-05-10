@@ -3,6 +3,51 @@
 #include "cfg_structs.h"
 #include "grepline.h"
 
+char * AssignString(const char * String, FILE * ConfigFile)
+{
+	char * line = NULL;
+	char * result = NULL;
+	uint8_t LineLen;
+	const uint8_t ArgLen = strlen(String);
+	while(strncmp(line,String,ArgLen))
+	{
+		grepline(&line,&LineLen,ConfigFile);
+	}
+	result = malloc(LineLen-ArgLen+1);
+	result[LineLen-ArgLen] = 0;
+	strcpy(result,line+ArgLen);
+	free(line);
+	return result;
+}
+float AssignFloat(const char * String, FILE * ConfigFile)
+{
+	char * line = NULL;
+	float result;
+	uint8_t LineLen;
+	const uint8_t ArgLen = strlen(String);
+	while(strncmp(line,String,ArgLen))
+	{
+		grepline(&line,&LineLen,ConfigFile);
+	}
+	result = strtof(line+ArgLen,NULL);
+	free(line);
+	return result;
+}
+uint32_t AssignInteger(const char * String, FILE * ConfigFile)
+{
+	char * line = NULL;
+	uint32_t result;
+	uint8_t LineLen;
+	const uint8_t ArgLen = strlen(String);
+	while(strncmp(line,String,ArgLen))
+	{
+		grepline(&line,&LineLen,ConfigFile);
+	}
+	result = strtoull(line+ArgLen,NULL,10);
+	free(line);
+	return result;
+}
+
 #ifdef linux
 	const char * _FO_CFG_FILE = "~/.freeradical/freeradical.conf";
 #else
@@ -11,213 +56,79 @@
 
 void FillDebug(struct * FRDebug Debug, FILE * ConfigFile)
 {
-// Initialize
-	char * line = NULL;
-	size_t len;
-// Reading mode
-	while(strcmp(line,"mode="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Debug.mode = malloc(len-5+1);
-	strcpy(Debug.mode,line+5);
-// Reading output_map_data_info
-	while(strcmp(line,"output_map_data_info="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Debug.output_map_data_info = strtol(line+21,NULL,10);
-// Reading show_load_info
-	while(strcmp(line,"show_load_info="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Debug.show_load_info = strtol(line+15,NULL,10);
-// Reading show_script_messages
-	while(strcmp(line,"show_script_messages="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Debug.show_script_messages = strtol(line+21,NULL,10);
-// Reading show_tile_num
-	while(strcmp(line,"show_tile_num="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Debug.show_tile_num = strtol(line+14,NULL,10);
-	free(line);
+	Debug.mode = AssignString("mode=",ConfigFile);
+	Debug.output_map_data_info = (char)AssignInteger("output_map_data_info=",ConfigFile);
+	Debug.show_load_info = (char)AssignInteger("show_load_info=",ConfigFile);
+	Debug.show_script_messages = (char)AssignInteger("show_script_messages=",ConfigFile);
+	Debug.show_tile_num = (char)AssignInteger("show_tile_num=",ConfigFile);
 }
-
 void FillPreferences(struct * FRPreferences Preferences, FILE * ConfigFile)
 {
-	char * line = NULL;
-	size_t len;
-// Reading britghtness
-	while(strcmp(line,"brightness="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Preferences.brightness = strtof(line+11,NULL);
-// Reading combat_difficulty
-	while(strcmp(line,"combat_difficulty="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Preferences.combat_difficulty = strtol(line+18,NULL,10);
-// Reading combat_looks
-	while(strcmp(line,"combat_looks="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Preferences.combat_looks = strtol(line+13,NULL,10);
-// Reading combat_messages
-	while(strcmp(line,"combat_messages="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Preferences.combat_messages = strtol(line+16,NULL,10);
-// Reading combat_speed
-	while(strcmp(line,"combat_speed="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Preferences.combat_speed = strtol(line+13,NULL,10);
-// Reading game_difficulty
-	while(strcmp(line,"game_difficulty="))
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Preferences.game_difficulty = strtol(line+16,NULL,10);
-// Reading item_highlight
-	while(strcmp(line,"item_highlight=")
-	{
-		grepline(&line,&len,ConfigFile);
-	}
-	Preferences.item_highlight = strtol(line+15,NULL,10);
-// Reading language_filter
-	while(strcmp(line,"language_filter="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Preferences.language_filter = strtol(line+16,NULL,10);
-// Reading mouse_sensitivity
-	while(strcmp(line,"mouse_sensitivity="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Preferences.mouse_sensitivity = strtof(line+18,NULL);
-// Reading player_speedup
-	while(strcmp(line,"player_speedup="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Preferences.player_speedup = strtol(line+15,NULL,10);
-// Reading running
-	while(strcmp(line,"running="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Preferences.running = strtol(line+8,NULL,10);
-// Reading subtitles
-	while(strcmp(line,"subtitles="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Preferences.subtitles = strtol(line+10,NULL,10);
-// Reading target_highlight
-	while(strcmp(line,"target_hightlight="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Preferences.target_hightlight = strtol(line+18,NULL,10);
-// Reading test_line_delay
-	while(strcmp(line,"test_line_delay="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Preferences.test_line_delay = strtof(line+16,NULL);
-// Reading text_base_delay
-	while(strcmp(line,"text_base_delay="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Preferences.text_base_delay = strtof(line+16,NULL);
-// Reading violence_level
-	while(strcmp(line,"violence_level="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Preferences.violence_level = strtol(line+15,NULL,10);
-	free(line);
+	Preferences.brightness = AssignFloat("brightness=",ConfigFile);
+	Preferences.combat_difficulty = (char)AssignInteger("combat_difficulty=",ConfigFile);
+	Preferences.combat_looks = (char)AssignInteger("combat_looks=",ConfigFile);
+	Preferences.combat_messages = (char)AssignInteger("combat_messages=",ConfigFile);
+	Preferences.combat_speed = (char)AssignInteger("combat_speed=",ConfigFile);
+	Preferences.game_difficulty = (char)AssignInteger("game_difficulty=",ConfigFile);
+	Preferences.item_highlight = (char)AssignInteger("item_highlight=",ConfigFile);
+	Preferences.language_filter = (char)AssignInteger("language_filter=",ConfigFile);
+	Preferences.mouse_sensitivity = AssignFloat("mouse_sensitivity=",ConfigFile);
+	Preferences.player_speedup = (char)AssignInteger("player_speedup=",ConfigFile);
+	Preferences.running = (char)AssignInteger("running=",ConfigFile);
+	Preferences.subtitles = (char)AssignInteger("subtitles=",ConfigFile);
+	Preferences.target_hightlight = (char)AssignInteger("target_hightlight=",ConfigFile);
+	Preferences.text_base_delay = AssignFloat("text_base_delay=",ConfigFile);
+	Preferences.text_line_delay = AssignFloat("text_line_delay=",ConfigFile);
+	Preferences.violence_level = (char)AssignInteger("violence_level=",ConfigFile);
 }
-
 void FillSound(struct * FRSound Sound, FILE * ConfigFile)
 {
-	char * line = NULL
-	size_t len;
-// Reading cache_size
-	while(strcmp(line,"cache_size="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Sound.cache_size = strtol(line+11,NULL,10);
-// Reading device
-	while(strcmp(line,"device="))
-	{
-		grepline(&line,&len,FileConfig);
-	}
-	Sound.device = strtol(line+7,NULL,10);
-// Reading initialize
-	while(strcmp(line,"initialize="))
-	{
-	}
-	Sound.initialize = strtol(line+111,NULL,10);
-// Reading irq
-	while(strcmp(line,"irq="))
-	{
-	}
-	Sound.irq = strtol(line+4,NULL,10);
-// Reading master_volume
-	while(strcmp(line,"master_volume="))
-	{
-	}
-	Sound.master_volume = strtol(line+14,NULL,10);
-// Reading music
-	while(strcmp(line,"music="))
-	{
-	}
-	Sound.music = strtol(line+6,NULL,10);
-// Reading music_path1
-	while(strcmp(line,"music_path1="))
-	{
-	}
-	len -= 11;
-	Sound.music_path1 = malloc(len);
-	memset(Sound.music_path1,0,len);
-	strcpy(Sound.music_path1,line+12);
-// Reading music_path2
-	while(strcmp(line,"music_path2="))
-	{
-	}
-	len -= 11;
-	Sound.music_path2 = malloc(len);
-	memset(Sound.music_path2,0,len);
-	strcpy(Sound.music_path2,line+12);
-// Reading music_volume
-	while(strcmp(line,"
+	Sound.cache_size = (uint16_t)AssignInteger("cache_size=",ConfigFile);
+	Sound.device = (int16_t)AssignInteger("device=",ConfigFile);
+	Sound.initialize = (char)AssignInteger("initialize=",ConfigFile);
+	Sound.irq = (int16_t)AssignInteger("irq=",ConfigFile);
+	Sound.master_volume = (int16_t)AssignInteger("master_volume=",ConfigFile);
+	Sound.music = (char)AssignInteger("music=",ConfigFile);
+	Sound.music_path1 = AssignString("music_path1=",ConfigFile);
+	Sound.music_path2 = AssignString("music_path2=",ConfigFile);
+	Sound.music_volume = (int16_t)AssignInteger("music_volume=",ConfigFile);
+	Sound.port = (int16_t)AssignInteger("port=",ConfigFile);
+	Sound.sndfx_volume = (int16_t)AssignInteger("sndfx_volume=",ConfigFile);
+	Sound.sounds = (char)AssignInteger("sounds=",ConfigFile);
+	Sound.speech = (char)AssignInteger("speech=",ConfigFile);
+	Sound.speech_volume = (int16_t)AssignInteger("speech_volume=",ConfigFile);
 }
-
-void FillConfigStruct(struct * FRConfig Config, FILE * ConfigFile)
+void FillSystem(struct * FRSystem System, FILE * ConfigFile)
 {
+	System.art_cache_size = (int16_t)AssignInteger("art_cache_size=",ConfigFile);
+	System.color_cycling = (char)AssignInteger("color_cycling=",ConfigFile);
+	System.critter_dat = AssignString("critter_dat=",ConfigFile);
+	System.critter_patches = AssignString("critter_patches=",ConfigFile);
+	System.cycle_speed_factor = (char)AssignInteger("cycle_speed_factor=",ConfigFile);
+	System.executable = AssignString("executable=",ConfigFile);
+	System.free_space = AssignInteger("free_space=",ConfigFile);
+	System.hashing = (char)AssignInteger("hashing=",ConfigFile);
+	System.interrupt_walk = (char)AssignInteger("interrupt_walk=",ConfigFile);
+	System.language = AssignString("language=",ConfigFile);
+	System.master_dat = AssignString("master_dat=",ConfigFile);
+	System.master_patches = AssignString("master_patches=",ConfigFile);
+	System.scroll_lock = (char)AssignInteger("scroll_lock=",ConfigFile);
+	System.splash = (char)AssignInteger("splash=",ConfigFile);
+	System.times_run = (char)AssignInteger("times_run=",ConfigFile);
+}
+void FillConfigStruct(struct * FRConfig Config)
+{
+	FILE * ConfigFile = fopen(_FO_CFG_FILE,"r");
 	FillDebug(Config->Debug,ConfigFile);
 	FillPreferences(Config->Preferences,ConfigFile);
 	FillSound(Config->Sound,ConfigFile);
 	FillSystem(Config->System,ConfigFile);
+	fclose(ConfigFile);
 }
 
 int main()
 {
-	FILE * ConfigFile = fopen(_FO_CFG_FILE,"r");
 	struct FRConfig Config;
 	FillConfigStruct(&Config,ConfigFile);
+	
 }
