@@ -25,7 +25,7 @@ struct FRPreferences
 	char subtitles;
 	char target_hightlight;
 	float text_base_delay;
-	float test_line_delay;
+	float text_line_delay;
 	char violence_level;
 };
 
@@ -55,7 +55,7 @@ struct FRSystem
 	char * critter_patches;
 	char cycle_speed_factor;
 	char * executable;
-	size_t free_space;
+	uint32_t free_space;
 	char hashing;
 	char interrupt_walk;
 	char * language;
