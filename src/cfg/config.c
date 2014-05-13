@@ -49,7 +49,8 @@ uint64_t AssignInteger(const char * String, FILE * ConfigFile)
 }
 
 #ifdef linux
-	const char * _FO_CFG_FILE = "~/.freeradical/freeradical.conf";
+	const char * _FO_CFG_PATH = "~/.freeradical/freeradical.conf";
+	const char * _FO_CFG_LOCK = "~/.freeradical/freeradical.lock";
 #else
 #	error "Install Gentoo"
 #endif
@@ -116,9 +117,9 @@ void FillSystem(struct * FRSystem System, FILE * ConfigFile)
 	System.splash = (char)AssignInteger("splash=",ConfigFile);
 	System.times_run = (char)AssignInteger("times_run=",ConfigFile);
 }
-void FillConfigStruct(struct * FRConfig Config)
+void FillConfigStruct(struct * FRConfig Config, const char * Conf)
 {
-	FILE * ConfigFile = fopen(_FO_CFG_FILE,"r");
+	FILE * ConfigFile = fopen(Conf,"r");
 	FillDebug(Config->Debug,ConfigFile);
 	FillPreferences(Config->Preferences,ConfigFile);
 	FillSound(Config->Sound,ConfigFile);
@@ -157,26 +158,63 @@ void DumpPreferences(struct * FRPreferences Preferences, FILE * ConfigFile)
 }
 void DumpSound(struct * FRSound Sound, FILE * ConfigFile)
 {
+	fputs("[sound]\n",ConfigFile);
+	fprintf(ConfigFile,"cache_size=%i\n",Sound.cache_size);
+	fprintf(ConfigFile,"device=%i\n",Sound.device);
+	fprintf(ConfigFile,"initialize=%i\n",Sound.initialize);
+	fprintf(ConfigFile,"irq=%i\n",Sound.irq);
+	fprintf(ConfigFile,"master_volume=%i\n",Sound.master_volume);
+	fprintf(ConfigFile,"music=%i\n",Sound.music);
+	fprintf(ConfigFile,"music_path1=%s\n",Sound.music_path1);
+	fprintf(ConfigFile,"music_path2=%s\n",Sound.music_path2);
+	fprintf(ConfigFile,"music_volume=%i\n",Sound.music_volume);
+	fprintf(ConfigFile,"port=%i\n",Sound.port);
+	fprintf(ConfigFile,"sndfx_volume=%i\n",Sound.sndfx_volume);
+	fprintf(ConfigFile,"sounds=%i\n",Sound.sounds);
+	fprintf(ConfigFile,"speech=%i\n",Sound.speech);
+	fprintf(ConfigFile,"speech_volume=%i\n",Sound.speech_volume);
+	fputs('\n',ConfigFile);
 }
 void DumpSystem(struct * FRSystem System, FILE * ConfigFile)
 {
+	fputs("[system]\n",ConfigFile);
+	fprintf(ConfigFile,"art_cache_size=%i\n",System.art_cache_size);
+	fprintf(ConfigFile,"color_cycling=%i\n",System.color_cycling);
+	fprintf(ConfigFile,"critter_dat=%s\n",System.critter_dat);
+	fprintf(ConfigFile,"critter_patches=%s\n",System.critter_patches);
+	fprintf(ConfigFile,"cycle_speed_factor=%i\n",System.cycle_speed_factor);
+	fprintf(ConfigFile,"executable=%s\n",System.executable);
+	fprintf(ConfigFile,"free_space=%i\n",System.free_space);
+	fprintf(ConfigFile,"hashing=%i\n",System.hashing);
+	fprintf(ConfigFile,"interrupt_walk=%i\n",System.interrupt_walk);
+	fprintf(ConfigFile,"language=%s\n",System.language);
+	fprintf(ConfigFile,"master_dat=%s\n",System.master_dat);
+	fprintf(ConfigFile,"master_patches=%s\n",System.master_patches);
+	fprintf(ConfigFile,"scroll_lock=%i\n",System.scroll_lock);
+	fprintf(ConfigFile,"splash=%i\n",System.splash);
+	fprintf(ConfigFile,"times_run=%i\n",System.times_run);
+	fputs('\n',ConfigFile);
 }
-void DumpMemConfig(struct * FRConfig Config)
+void DumpMemConfig(struct * FRConfig Config, const char * Conf)
 {
-	FILE * ConfigFile = fopen(_FO_CFG_FILE,"w");
+	FILE * ConfigFile = fopen(Conf,"w");
 	DumpDebug(Config->Debug,ConfigFile);
 	DumpPreferences(Config->Preferences,ConfigFile);
 	DumpSound(Config->Sound,ConfigFile);
 	DumpSystem(Config->System,ConfigFile);
 	fclose(ConfigFile);
 }
-void ChangeConfig()
+void ChangeConfig(struct * FRConfig Config)
 {
-	
+	FILE * lock = fopen(_FO_CFG_LOCK,"w");
+	fclose(lock);
+	remove(_FO_CFG_PATH);
+	DumpMemConfig(&Config,_FO_CFG_PATH);
+	remove(_FO_CFG_LOCK);
 }
 int main()
 {
 	struct FRConfig Config;
-	FillConfigStruct(&Config,ConfigFile);
+	FillConfigStruct(&Config,_FO_CFG_PATH);
 	
 }
