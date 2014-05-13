@@ -125,7 +125,55 @@ void FillConfigStruct(struct * FRConfig Config)
 	FillSystem(Config->System,ConfigFile);
 	fclose(ConfigFile);
 }
-
+void DumpDebug(struct * FRDebug Debug, FILE * ConfigFile)
+{
+	fputs("[debug]\n",ConfigFile);
+	fpritnf(ConfigFile,"mode=%s\n",Debug.mode);
+	fprintf(ConfigFile,"output_map_data_info=%i\n",Debug.output_map_data_info);
+	fprintf(ConfigFile,"show_load_info=%i\n",Debug.show_load_info);
+	fprintf(ConfigFile,"show_script_messages=%i\n",Debug.show_script_messages);
+	fprintf(ConfigFile,"show_tile_num=%i\n\n",Debug.show_tile_num);
+}
+void DumpPreferences(struct * FRPreferences Preferences, FILE * ConfigFile)
+{
+	fputs("[preferences]\n",ConfigFile);
+	fprintf(ConfigFile,"brightness=%.6f\n",Preferences.brightness);
+	fprintf(ConfigFile,"combat_difficulty=%i\n",Preferences.combat_difficulty);
+	fprintf(ConfigFile,"combat_looks=%i\n",Preferences.combat_looks);
+	fprintf(ConfigFile,"combat_messages=%i\n",Preferences.combat_messages);
+	fprintf(ConfigFile,"combat_speed=%i\n",Preferences.combat_speed);
+	fprintf(ConfigFile,"game_difficulty=%i\n",Preferences.game_difficulty);
+	fprintf(ConfigFile,"item_highlight=%i\n",Preferences.item_highlight);
+	fprintf(ConfigFile,"language_filter=%i\n",Preferences.language_filter);
+	fprintf(ConfigFile,"mouse_sensitivity=%.6f\n",Preferences.mouse_sensitivity);
+	fprintf(ConfigFile,"player_speedup=%i\n",Preferences.player_speedup);
+	fprintf(ConfigFile,"running=%i\n",Preferences.running);
+	fprintf(ConfigFile,"subtitles=%i\n",Preferences.subtitles);
+	fprintf(ConfigFile,"target_hightlight=%i\n",Preferences.target_hightlight);
+	fprintf(ConfigFile,"text_base_delay=%.6f\n",Preferences.text_base_delay);
+	fprintf(ConfigFile,"text_line_delay=%.6f\n",Preferences.text_line_delay);
+	fprintf(ConfigFile,"violence_level=%i\n",Preferences.violence_level);
+	fputc('\n',ConfigFile);
+}
+void DumpSound(struct * FRSound Sound, FILE * ConfigFile)
+{
+}
+void DumpSystem(struct * FRSystem System, FILE * ConfigFile)
+{
+}
+void DumpMemConfig(struct * FRConfig Config)
+{
+	FILE * ConfigFile = fopen(_FO_CFG_FILE,"w");
+	DumpDebug(Config->Debug,ConfigFile);
+	DumpPreferences(Config->Preferences,ConfigFile);
+	DumpSound(Config->Sound,ConfigFile);
+	DumpSystem(Config->System,ConfigFile);
+	fclose(ConfigFile);
+}
+void ChangeConfig()
+{
+	
+}
 int main()
 {
 	struct FRConfig Config;
