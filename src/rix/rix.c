@@ -25,17 +25,14 @@ char IsFalloutRIX(FILE * Splash) /* File must be set on beginning */
 	size_t ActualSize = 0;
 	struct RIXheader RIX = {{0,0,0,0},0,0,0};
 	fread(&RIX.Signature,4,1,Splash);
-	if(!BigEndian())
+	fread(&RIX.Width,2,1,Splash);
+	fread(&RIX.Height,2,1,Splash);
+	fread(&RIX.Unknown,2,1,Splash);
+	if(BigEndian())
 	{
-		fread(&RIX.Width,2,1,Splash);
-		fread(&RIX.Height,2,1,Splash);
-		fread(&RIX.Unknown,2,1,Splash);
-	}
-	else
-	{
-		RIX.Width = ReadAlienEndian16(Splash);
-		RIX.Height = ReadAlienEndian16(Splash);
-		RIX.Unknown = ReadAlienEndian16(Splash);
+		RIX.Width = FR_bswap16(RIX.Width);
+		RIX.Height = FR_bswap16(RIX.Height);
+		RIX.Unknown = FR_bswap16(RIX.Unknown);
 	}
 	fseeko(Splash,0,SEEK_END);
 	ActualSize = ftello(Splash);

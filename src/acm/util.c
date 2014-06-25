@@ -259,7 +259,7 @@ int acm_seek_pcm(ACMStream *acm, unsigned pcm_pos)
 int acm_read_loop(ACMStream *acm, void *dst, unsigned bytes,
 		int bigendianp, int wordlen, int sgned)
 {
-	unsigned char *dstp = dst;
+	unsigned char *dstp = (unsigned char*)dst;
 	int res, got = 0;
 	while (bytes > 0) {
 		res = acm_read(acm, dstp, bytes, bigendianp, wordlen, sgned);

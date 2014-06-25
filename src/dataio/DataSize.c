@@ -6,13 +6,9 @@ uint32_t DAT2DataSize(FILE * DAT2)
 {
 	uint32_t result;
 	fseeko(DAT2,-4,SEEK_END);
-	if(!BigEndian())
-	{
-		fread(&result,4,1,DAT2);
-	}
-	else
-	{
-		result = ReadAlienEndian(DAT2);
+	fread(&result,4,1,DAT2);
+	if(!BigEndian()) {
+		result = FR_bswap32(result);
 	}
 	return result;
 }
@@ -21,13 +17,9 @@ uint32_t DAT2TreeSize(FILE * DAT2)
 {
 	uint32_t result;
 	fseeko(DAT2,-8,SEEK_END);
-	if(!BigEndian())
-	{
-		fread(&result,4,1,DAT2);
-	}
-	else
-	{
-		result = ReadAlienEndian(DAT2);
+	fread(&result,4,1,DAT2);
+	if(!BigEndian()) {
+		result = FR_bswap32(result);
 	}
 	return result;
 }
@@ -40,13 +32,9 @@ uint32_t DAT2FilesTotal(FILE * DAT2, uint32_t Offset)
 {
 	uint32_t result;
 	fseeko(DAT2,Offset,SEEK_SET);
-	if(!BigEndian())
-	{
-		fread(&result,4,1,DAT2);
-	}
-	else
-	{
-		result = ReadAlienEndian(DAT2);
+	fread(&result,4,1,DAT2);
+	if(!BigEndian()) {
+		result = FR_bswap32(result);
 	}
 	return result;
 }

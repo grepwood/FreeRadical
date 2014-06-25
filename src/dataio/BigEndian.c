@@ -1,35 +1,6 @@
 #include <stdio.h>
-#include <stdint.h>
 
-/* Generic function for reading a DWORD off an alien endian */
-
-uint32_t ReadAlienEndian32(FILE * gah)
-{
-        union
-        {
-                uint32_t result;
-                char c[4];
-        }
-        foo = {0x00000000};
-        foo.c[3] = fgetc(gah);
-        foo.c[2] = fgetc(gah);
-        foo.c[1] = fgetc(gah);
-        foo.c[0] = fgetc(gah);
-        return foo.result;
-}
-
-uint16_t ReadAlienEndian16(FILE * gah)
-{
-        union
-        {
-                uint16_t result;
-                char c[2];
-        }
-        foo = {0x0000};
-        foo.c[1] = fgetc(gah);
-        foo.c[0] = fgetc(gah);
-        return foo.result;
-}
+/* This is how the engine deals with endianesses different than the host's */
 
 /* We use a function to determine endianess of a host because there
  * exist such freaks of nature like bi-endian machines and endian
@@ -37,10 +8,9 @@ uint16_t ReadAlienEndian16(FILE * gah)
 
 char BigEndian(void)
 {
-	union
-	{
-		uint16_t i;
-		char c[2];
+	union {
+		short int w;
+		char b[2];
 	} foo = {0x0100};
-	return foo.c[0];
+	return foo.b[0];
 }

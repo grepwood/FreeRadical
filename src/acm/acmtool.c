@@ -162,7 +162,7 @@ static void play_file(const char *fn)
 static char * makefn(const char *fn, const char *ext)
 {
 	char *dstfn, *p;
-	dstfn = malloc(strlen(fn) + strlen(ext) + 2);
+	dstfn = (char*)malloc(strlen(fn) + strlen(ext) + 2);
 	strcpy(dstfn, fn);
 	p = strrchr(dstfn, '.');
 	if (p != NULL)
@@ -265,7 +265,7 @@ static void decode_file(const char *fn, const char *fn2)
 		}
 	}
 	buflen = 16*1024;
-	buf = malloc(buflen);
+	buf = (char*)malloc(buflen);
 
 	total_bytes = acm_pcm_total(acm) * acm_channels(acm) * ACM_WORD;
 	

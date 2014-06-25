@@ -785,7 +785,7 @@ int acm_open_decoder(ACMStream **res, void *arg, acm_io_callbacks io_cb, int for
 	int err = ACM_ERR_OTHER;
 	ACMStream *acm;
 	
-	acm = malloc(sizeof(*acm));
+	acm = (ACMStream*)malloc(sizeof(*acm));
 	if (!acm)
 		return err;
 	memset(acm, 0, sizeof(*acm));
@@ -800,7 +800,7 @@ int acm_open_decoder(ACMStream **res, void *arg, acm_io_callbacks io_cb, int for
 	}
 	
 	acm->buf_max = ACM_BUFLEN;
-	acm->buf = malloc(acm->buf_max);
+	acm->buf = (unsigned char*)malloc(acm->buf_max);
 	if (!acm->buf) 
 		goto err_out;
 
@@ -828,9 +828,9 @@ int acm_open_decoder(ACMStream **res, void *arg, acm_io_callbacks io_cb, int for
 	acm->block_len = acm->info.acm_rows * acm->info.acm_cols;
 
 	/* allocate */
-	acm->block = malloc(acm->block_len * sizeof(int));
-	acm->wrapbuf = malloc(acm->wrapbuf_len * sizeof(int));
-	acm->ampbuf = malloc(0x10000 * sizeof(int));
+	acm->block = (int*)malloc(acm->block_len * sizeof(int));
+	acm->wrapbuf = (int*)malloc(acm->wrapbuf_len * sizeof(int));
+	acm->ampbuf = (int*)malloc(0x10000 * sizeof(int));
 	acm->midbuf = acm->ampbuf + 0x8000;
 
 	memset(acm->wrapbuf, 0, acm->wrapbuf_len * sizeof(int));
@@ -885,7 +885,7 @@ int acm_read(ACMStream *acm, void *dst, unsigned numbytes,
 	/* convert, but if dst == NULL, simulate */
 	if (dst != NULL) {
 		src = acm->block + acm->block_pos;
-		gotbytes = output_values(src, dst, numwords,
+		gotbytes = output_values(src, (unsigned char*)dst, numwords,
 				acm->info.acm_level,
 				bigendianp, wordlen, sgned);
 	} else
