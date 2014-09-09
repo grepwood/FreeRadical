@@ -1,16 +1,18 @@
 Current concerns:
-    * make SDL2 surface
-    * playing the intros on that surface (will need stuff from ffmpeg)
-    ** justify relying on ffmpeg: maybe add support for cutscenes encoded in webm and Ogg?
-    * read and alter fallout2 config files
-    ** provide an example config even if it has low-level stuff like DMA and IRQ settings for sound devices, we'll just ignore them and rely on SDL2
-    ** define config settings for this engine such as fullscreen, resolution, etc
-    * extract something meaningful out of a DAT2
-    * draft a DAT2+ that does not use obsolete and obscure formats and is generally easier to work with
-    ** like have images in PNG and APNG rather than FRM and RIX and use PAL to brighten up int24 pixels
-    * draft a DAT2 handler where the compression byte can be set to a value higher than 0x01 to indicate different (and likely superior) compression than zlib
-    * play the actual Fallout 2 more and document observed behavior
+	** provide an example config even if it has low-level stuff like DMA and IRQ settings for sound devices, we'll just ignore them and rely on SDL2
+	** define config settings for this engine such as fullscreen, resolution, etc
+	* extract something meaningful out of a DAT2
+	* draft a DAT2+ that does not use obsolete and obscure formats and is generally easier to work with
+	** like have images in PNG and APNG rather than FRM and RIX and use PAL to brighten up int24 pixels
+	* draft a DAT2 handler where the compression byte can be set to a value higher than 0x01 to indicate different (and likely superior) compression than zlib
+	* play the actual Fallout 2 more and document observed behavior
+	* use libacm to decode sounds
+	* write a speech-from-sound-differentiator because most mono sounds are declared as stereo
 
 Stuff that has been dealt with:
 	* displaying splash screens in SDL2
-	* determining host endianess at runtime (useful in handling gamedata and running on niche hardware)
+	* determining host endianess at runtime (useful in handling gamedata and running on ppc32 and arm)
+	* optimized endian swaps using compiler intrinsics
+	* cutscene playback
+	** needs improvement - add automatic player quit when cutscene is at an end
+	* config reader and writer
