@@ -1,0 +1,21 @@
+CC=powerpc-apple-darwin10-gcc-4.2.1
+CFLAGS=-O2
+WFLAGS=-Wall -Wextra -pedantic
+IFLAGS=-I./include
+
+if [ -d "/Library/Frameworks/SDL2.framework" ]; then
+	RIXFLAGS="-framework SDL2"
+elif [ -f "/usr/lib/libSDL2.dylib" ]; then
+	RIXFLAGS="-lSDL2"
+else
+	echo "SDL2 isn't installed"
+fi
+
+OSXFLAGS=-mmacosx-version-min=10.5
+
+all:	tests
+
+tests:	rix-test
+
+rix-test:
+	$(CC) $(WFLAGS) $(RIXFLAGS) $(OSXFLAGS) $(CFLAGS) $(IFLAGS) src/dataio/BigEndian.c src/rix/rix.c test/test_rix.c -o test_rix
