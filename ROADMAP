@@ -6,8 +6,6 @@ Current concerns:
 	** like have images in PNG and APNG rather than FRM and RIX and use PAL to brighten up int24 pixels
 	* draft a DAT2 handler where the compression byte can be set to a value higher than 0x01 to indicate different (and likely superior) compression than zlib
 	* play the actual Fallout 2 more and document observed behavior
-	* use libacm to decode sounds
-	* write a speech-from-sound-differentiator because most mono sounds are declared as stereo
 
 Stuff that has been dealt with:
 	* displaying splash screens in SDL2
@@ -16,3 +14,4 @@ Stuff that has been dealt with:
 	* cutscene playback
 	** needs improvement - add automatic player quit when cutscene is at an end
 	* config reader and writer
+	* audio playback with libacm, with mono prediction
