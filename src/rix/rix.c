@@ -10,7 +10,7 @@
 #include <rix/rix.h>
 #include <dataio/BigEndian.h>
 
-unsigned char bmpheader[54] = {	66,77,54,16,14,0,0,0,0,0,54,0,0,0,40,0,0,0,128,2,0,0,224,1,0,0,
+static int8_t bmpheader[54] = {	66,77,54,16,14,0,0,0,0,0,54,0,0,0,40,0,0,0,128,2,0,0,224,1,0,0,
 				1,0,24,0,0,0,0,0,0,16,14,0,19,11,0,0,19,11,0,0,0,0,0,0,0,0,0,0};
 
 /* Returns 0b00111111 subtract failed criterions
@@ -30,8 +30,8 @@ char IsFalloutRIX(FILE * Splash) { /* File must be set on beginning */
 	fread(&RIX.Signature,4,1,Splash);
 	fread(&RIX.Width,2,1,Splash);
 	fread(&RIX.Height,2,1,Splash);
-	RIX.PT = (char)fgetc(Splash);
-	RIX.ST = (char)fgetc(Splash);
+	RIX.PT = fgetc(Splash);
+	RIX.ST = fgetc(Splash);
 	if(BigEndian()) {
 		RIX.Width = FR_bswap16(RIX.Width);
 		RIX.Height = FR_bswap16(RIX.Height);
@@ -39,24 +39,12 @@ char IsFalloutRIX(FILE * Splash) { /* File must be set on beginning */
 	fseeko(Splash,0,SEEK_END);
 	ActualSize = ftello(Splash);
 	fseeko(Splash,10,SEEK_SET);
-	if(!memcmp(RIX.Signature,"RIX3",4)) {
-		result += 1;
-	}
-	if(ActualSize == 307978) {
-		result += 2;
-	}
-	if(RIX.Width == 640) {
-		result += 4;
-	}
-	if(RIX.Height == 480) {
-		result += 8;
-	}
-	if(RIX.PT == 0xAF) { /* VGA */
-		result += 16;
-	}
-	if(!RIX.ST) { /* Linear */
-		result += 32;
-	}
+	if(!memcmp(RIX.Signature,"RIX3",4)) result += 1;
+	if(ActualSize == 307978) result += 2;
+	if(RIX.Width == 640) result += 4;
+	if(RIX.Height == 480) result += 8;
+	if(RIX.PT == 0xAF) result += 16; /* VGA */
+	if(!RIX.ST) result += 32; /* Linear mode */
 	return result;
 }
 
@@ -71,9 +59,8 @@ unsigned char * FalloutRIX2BMPMem(FILE * RIX) {
 /* Simple BMP header for a 640x480x24 pic */
 	memcpy(bitmap,bmpheader,54);
 	fread(RIXPalette,768,1,RIX);
-	for(Counter = 0; Counter < Position; ++Counter) {
-		palptr[Counter] <<= 2; /* Since each byte is less than 64, this will never cause an overflow */
-	}
+/* All channel components are <64, this is safe */
+	for(Counter = 0; Counter < Position; ++Counter) palptr[Counter] <<= 2;
 	for(Counter = 0; Counter < 768; Counter += 3) {
 		tmp = RIXPalette[Counter];
 		RIXPalette[Counter] = RIXPalette[Counter+2];
