@@ -8,6 +8,7 @@ uint32_t GetMapVersion(FILE * Map) {
 	return result;
 }
 
+/* Function for handling modern MAP files */
 char * textline(FILE * stream) {
 	char * result = NULL;
 	size_t len = 0;
@@ -15,17 +16,23 @@ char * textline(FILE * stream) {
 	char buf;
 	do {
 		buf = fgetc(stream);
-		++len;
+		if(buf) ++len;
 	} while(buf);
 	fseek(stream,offset,SEEK_SET);
-	result = malloc(len);
-	fread(result,len,1,stream);
+	result = malloc(len+1);
+	if(result) {
+		fread(result,len,1,stream);
+		result[len]=0;
+	}
 	return result;
 }
 
-char * GetFileName(FILE * Map, char version) {
+char * GetFileName(FILE * Map, unsigned char version) {
 	char * result;
 	if(version < 21) {
+/* Fallout 1 and 2 feature MAP version 20 or lower, which
+ * have a fixed length of 16 bytes, including dot and
+ * extension. */
 		result = malloc(17);
 		fread(result,16,1,Map);
 		result[16] = 0;
