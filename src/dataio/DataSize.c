@@ -1,9 +1,11 @@
+#include <stdio.h>
 #include <stdint.h>
-#include "dat.h"
+#include <stdlib.h>
 #include <zlib.h>
 #include <lzss.h>
 
-#include "include/dataio/BigEndian.h"
+#include "dataio/dat.h"
+#include "dataio/BigEndian.h"
 
 static char Dat1Check(char * path) {
 	FILE * file = fopen(path,"rb");
@@ -56,26 +58,26 @@ char FR_popcnt(char n) {
 #	endif
 #endif
 
-static char IdentifyDat(char * path) {
-	char version = Dat1Check(path) | Dat2Check(path) | DatXCheck(path);
+static int8_t IdentifyDat(char * path) {
+	int8_t version = Dat1Check(path) | Dat2Check(path) | DatXCheck(path);
 	if(FR_popcnt(version) > 1) return 0xF0;
 	else return version;
 }
 
 void FR_OpenDAT(char * path, struct fr_dat_handler_t * dat) {
-	dat->flag = IdentifyDat(path);
-	if(dat->flag.error || !dat->flag.version) {
+	dat->octet.byte = IdentifyDat(path);
+	if(dat->octet.flag.error || !dat->octet.flag.version) {
 		dat->fp = NULL;
 		fprintf(stderr,"%s is not a supported archive\n",path);
 	} else {
-		dat->flag.open = 1;
+		dat->octet.flag.open = 1;
 		dat->fp = fopen(path,"rb");
 	}
 }
 
 static char * ReadDirName1(FILE * fp) {
 	unsigned char i = fgetc(fp);
-	char * result = malloc(i+1);
+	char * result = (char*)malloc(i+1);
 	static long err;
 	if(result == NULL) return NULL;
 	err = fread(result,i+1,1,fp);
@@ -90,7 +92,7 @@ static char * ReadDirName1(FILE * fp) {
 static void AllocateFile1(struct fo1_file_t * File, FILE * fp) {
 	int16_t i = fgetc(fp) & 0x00ff;
 	File->NameLength = i;
-	File->Name = malloc(++i);
+	File->Name = (char*)malloc(++i);
 	fread(File->Name,File->NameLength,1,fp);
 	File->Name[File->NameLength] = 0;
 	fseek(fp,3,SEEK_SET); /* Skipping big endian zeros */
@@ -109,7 +111,7 @@ static void AllocateDir1(struct fo1_dir_t * dir, FILE * fp) {
 	int16_t l = fgetc(fp) & 0x00ff;
 	long i;
 	dir->Length = l;
-	dir->DirName = malloc(++l);
+	dir->DirName = (char*)malloc(++l);
 	fread(dir->DirName,dir->Length,1,fp);
 	dir->DirName[dir->Length] = 0;
 	fread(&dir->FileCount,4,1,fp);
@@ -117,47 +119,45 @@ static void AllocateDir1(struct fo1_dir_t * dir, FILE * fp) {
 	dir->FileCount = FR_bswap32(dir->FileCount);
 #endif
 	fseek(fp,12,SEEK_CUR);
-	dir->File = malloc(dir->FileCount*sizeof(fo1_file_t));
-	for(i = 0; i < dir->FileCount; ++i) AllocateFile1(dir->File[i],fp);
+	dir->File = (struct fo1_file_t*)malloc(dir->FileCount*sizeof(struct fo1_file_t));
+	for(i = 0; i < dir->FileCount; ++i) AllocateFile1(&dir->File[i],fp);
 }
 
 static void AllocateDat1(struct fr_dat_handler_t * dat) {
 	uint32_t CurrentDir;
-	struct fo1_dat_t * fo1 = dat->proxy = malloc(sizeof(fo1_dat_t));
+	struct fo1_dat_t * fo1 = dat->proxy = (struct fo1_dat_t*)malloc(sizeof(struct fo1_dat_t));
 	fread(&fo1->DirectoryCount,4,1,dat->fp);
 #ifndef BIG_ENDIAN
 	fo1->DirectoryCount = FR_bswap32(fo1->DirectoryCount);
 #endif
 	fseek(dat->fp,12,SEEK_CUR); /* Skipping unknowns and magic */
-	fo1->Directory = malloc(fo1->DirectoryCount*sizeof(fo1_dir_t));
-	for(CurrentDir = 0; CurrentDir < fo1->DirectoryCount; ++CurrentDir) {
-		AllocateDir1(fo1->Directory[CurrentDir], datfile->fp);
-	}
+	fo1->Directory = (struct fo1_dir_t*)malloc(fo1->DirectoryCount*sizeof(struct fo1_dir_t));
+	for(CurrentDir = 0; CurrentDir < fo1->DirectoryCount; ++CurrentDir) AllocateDir1(&fo1->Directory[CurrentDir], dat->fp);
 }
 
 static void AllocateFile2(struct fo2_file_t * dat, FILE * fp) {
 	fread(&dat->NameLength,4,1,fp);
 	
-	fread(&dat->
+/*	fread(&dat->)*/
 }
 
 static void AllocateDat2(struct fr_dat_handler_t * dat) {
 	uint32_t i;
-	struct fo2_dat_t * fo2 = dat->proxy = malloc(sizeof(fo2_dat_t));
+	struct fo2_dat_t * fo2 = dat->proxy = (struct fo2_dat_t*)malloc(sizeof(struct fo2_dat_t));
 	fseek(dat->fp,-8,SEEK_END);
-	fread(&dat->TreeSize,4,1,dat->fp);
-	fread(&dat->DatSize,4,1,dat->fp);
+	fread(&fo2->TreeSize,4,1,dat->fp);
+	fread(&fo2->DatSize,4,1,dat->fp);
 #ifdef BIG_ENDIAN
-	dat->TreeSize = FR_bswap32(dat->TreeSize);
-	dat->DatSize = FR_bswap32(dat->DatSize);
+	fo2->TreeSize = FR_bswap32(fo2->TreeSize);
+	fo2->DatSize = FR_bswap32(fo2->DatSize);
 #endif
-	fseek(dat->fp,dat->DatSize - dat->TreeSize - 12,SEEK_SET);
-	fread(&dat->FilesTotal,4,1,dat->fp);
+	fseek(dat->fp,fo2->DatSize - fo2->TreeSize - 12,SEEK_SET);
+	fread(&fo2->FilesTotal,4,1,dat->fp);
 #ifdef BIG_ENDIAN
-	dat->FilesTotal = FR_bswap32(dat->FilesTotal);
+	fo2->FilesTotal = FR_bswap32(fo2->FilesTotal);
 #endif
-	dat->File = malloc(dat->FilesTotal*sizeof(fo2_file_t));
-	for(i = 0; i < dat->TreeSize; ++i) AllocateFile2(dat->File[i],dat->fp);
+	fo2->File = (struct fo2_file_t*)malloc(fo2->FilesTotal*sizeof(struct fo2_file_t));
+	for(i = 0; i < fo2->TreeSize; ++i) AllocateFile2(&fo2->File[i],dat->fp);
 }
 
 static void AllocateDatX(struct fr_dat_handler_t * dat) {
@@ -166,7 +166,7 @@ static void AllocateDatX(struct fr_dat_handler_t * dat) {
 }
 
 void FR_ReadDAT(struct fr_dat_handler_t * dat) {
-	switch(dat->flag.version) {
+	switch(dat->octet.flag.version) {
 		case 1: AllocateDat1(dat); break;
 		case 2: AllocateDat2(dat); break;
 		case 4: AllocateDatX(dat); break;

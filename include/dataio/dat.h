@@ -10,13 +10,6 @@
 
 /*#ifdef LEGACY_SUPPORT */
 /* Fallout 1 DAT structure */
-struct fo1_dir_t {
-	unsigned char Length;
-	char * DirName;
-	uint32_t FileCount;
-	struct * fo1_file_t File;
-};
-
 struct fo1_file_t {
 	unsigned char NameLength;	/* FO1 uses Pascal strings... */
 	char * Name;
@@ -25,12 +18,19 @@ struct fo1_file_t {
 	uint32_t Offset;			/* Offset wrt the .dat */
 	uint32_t OrigSize;
 	uint32_t PackedSize;		/* 0 if not compressed */
-	char * Buffer; 				/* FreeRadical's way of telling if it's buffered into the memory or not */
+	char * Buffer;				/* FreeRadical's way of telling if it's buffered into the memory or not */
+};
+
+struct fo1_dir_t {
+	unsigned char Length;
+	char * DirName;
+	uint32_t FileCount;
+	struct fo1_file_t * File;
 };
 
 struct fo1_dat_t {
 	uint32_t DirectoryCount;
-	struct * fo1_dir_t Directory;
+	struct fo1_dir_t * Directory;
 };
 
 /* Fallout 2 DAT structure */
@@ -52,7 +52,7 @@ struct fo2_dat_t {
 	uint32_t FilesTotal;
 	uint32_t TreeSize;
 /* Archive block */
-	struct * fo2_file_t File;
+	struct fo2_file_t * File;
 };
 /*#endif*/
 
@@ -62,10 +62,13 @@ struct fr_dat_t {
 
 struct fr_dat_handler_t {
 	FILE * fp;
-	struct {
-		char error : 4;
-		char open : 1;
-		char version : 3;
-	} flag;
+	union {
+		struct {
+			int8_t error : 4;
+			int8_t open : 1;
+			int8_t version : 3;
+		} flag;
+		int8_t byte;
+	} octet;
 	void * proxy;
 };
