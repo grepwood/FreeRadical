@@ -172,3 +172,11 @@ void FR_ReadDAT(struct fr_dat_handler_t * dat) {
 		case 4: AllocateDatX(dat); break;
 	}
 }
+
+int main(int argc, char **argv) {
+	struct fr_dat_handler_t okay;
+	if(argc != 2) exit(1);
+	FR_OpenDAT(argv[1],&okay);
+	FR_ReadDAT(&okay);
+	return 0;
+}
