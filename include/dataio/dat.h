@@ -6,7 +6,9 @@
 #define LZSS		1
 #define ZLIB		2
 
-#ifdef LEGACY_SUPPORT
+#include <stdio.h>
+
+/*#ifdef LEGACY_SUPPORT */
 /* Fallout 1 DAT structure */
 struct fo1_dir_t {
 	unsigned char Length;
@@ -52,7 +54,7 @@ struct fo2_dat_t {
 /* Archive block */
 	struct * fo2_file_t File;
 };
-#endif
+/*#endif*/
 
 /* This will be defined in the future
 struct fr_dat_t {
