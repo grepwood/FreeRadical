@@ -62,13 +62,6 @@ struct fr_dat_t {
 
 struct fr_dat_handler_t {
 	FILE * fp;
-	union {
-		struct {
-			int8_t error : 4;
-			int8_t open : 1;
-			int8_t version : 3;
-		} flag;
-		int8_t byte;
-	} octet;
+	char control;
 	void * proxy;
 };
