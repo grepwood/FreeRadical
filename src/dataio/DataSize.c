@@ -8,9 +8,13 @@
 #include "dataio/BigEndian.h"
 
 #define _FILE_OFFSET_BITS 64
-#define UNKNOWN_ERROR -16
+#define UNKNOWN_ERROR -32
 #define MULTIVERSION 7
 #define FILE_IS_OPEN 8
+#define MASTER 16
+#define MASTER1 17
+#define MASTER2 18
+#define MASTERX 20
 static char Dat1Check(char * path) {
 	FILE * file = fopen(path,"rb");
 	uint64_t arcsize;
@@ -28,11 +32,10 @@ static char Dat1Check(char * path) {
 	t32 = FR_bswap32(t32);
 #endif
 	t64 = t32;
-	switch(Unknown[0]) {
-		case 0x5E: puts("master.dat"); break;
-		case 0x0A: puts("critter.dat"); break;
+	if((Unknown[0] == 0x0A || Unknown[0] == 0x5E) && Unknown[1] == 0 && t64 != arcsize) {
+		if(Unknown[0]== 0x5E) return MASTER1;
+		else return 0;
 	}
-	if((Unknown[0] == 0x0A || Unknown[0] == 0x5E) && Unknown[1] == 0 && t64 != arcsize) return 1;
 	else return 0;
 }
 
@@ -79,7 +82,7 @@ char FR_popcnt(char n) {
 static char IdentifyDat(char * path) {
 	char version = Dat1Check(path) | Dat2Check(path) | DatXCheck(path);
 	printf("Detected version: %i\n",(int)version);
-	if(FR_popcnt(version) > 1) {return UNKNOWN_ERROR;}
+	if(FR_popcnt(version & MULTIVERSION) > 1) return UNKNOWN_ERROR;
 	else return version;
 }
 
@@ -138,7 +141,9 @@ static void AllocateDat1(struct fr_dat_handler_t * dat) {
 	fo1->DirectoryCount = FR_bswap32(fo1->DirectoryCount);
 #endif
 	printf("arc has %u dirs\n",fo1->DirectoryCount);
-	fseek(dat->fp,12,SEEK_CUR); /* Skipping unknowns and magic */
+/* Skipping unknowns and magic */
+	if(dat->control & MASTER) fseek(dat->fp,14,SEEK_CUR);
+	else fseek(dat->fp,12,SEEK_CUR);
 	fo1->Directory = (struct fo1_dir_t*)malloc(fo1->DirectoryCount*sizeof(struct fo1_dir_t));
 	for(i = 0; i < fo1->DirectoryCount; ++i) AllocateDir1(&(fo1->Directory[i]), dat->fp);
 }
