@@ -8,6 +8,9 @@
 #include "dataio/BigEndian.h"
 
 #define _FILE_OFFSET_BITS 64
+#define UNKNOWN_ERROR -16
+#define MULTIVERSION 7
+#define FILE_IS_OPEN 8
 static char Dat1Check(char * path) {
 	FILE * file = fopen(path,"rb");
 	uint64_t arcsize;
@@ -25,6 +28,10 @@ static char Dat1Check(char * path) {
 	t32 = FR_bswap32(t32);
 #endif
 	t64 = t32;
+	switch(Unknown[0]) {
+		case 0x5E: puts("master.dat"); break;
+		case 0x0A: puts("critter.dat"); break;
+	}
 	if((Unknown[0] == 0x0A || Unknown[0] == 0x5E) && Unknown[1] == 0 && t64 != arcsize) return 1;
 	else return 0;
 }
@@ -68,7 +75,7 @@ char FR_popcnt(char n) {
 #	endif
 #endif
 
-#define UNKNOWN_ERROR -16
+
 static char IdentifyDat(char * path) {
 	char version = Dat1Check(path) | Dat2Check(path) | DatXCheck(path);
 	printf("Detected version: %i\n",(int)version);
@@ -76,8 +83,6 @@ static char IdentifyDat(char * path) {
 	else return version;
 }
 
-#define MULTIVERSION 7
-#define FILE_IS_OPEN 8
 void FR_OpenDAT(char * path, struct fr_dat_handler_t * dat) {
 	dat->control = IdentifyDat(path);
 	if(dat->control & UNKNOWN_ERROR || !(dat->control & MULTIVERSION)) {
@@ -95,11 +100,11 @@ static void AllocateFile1(struct fo1_file_t * File, FILE * fp) {
 	File->Name = (char*)malloc(++i);
 	fread(File->Name,File->NameLength,1,fp);
 	File->Name[File->NameLength] = 0;
-	fseek(fp,3,SEEK_SET); /* Skipping big endian zeros */
-	File->Attributes = (fgetc(fp) & 0x000000ff) >> 6;
+	fseek(fp,3,SEEK_CUR); /* Skipping big endian zeros */
+	File->Attributes = fgetc(fp) >> 6;
 	fread(&File->Offset,4,1,fp);
-	fread(&File->OrigSize,4,1,fp);
-	fread(&File->PackedSize,4,1,fp);
+	fread(&(File->OrigSize),4,1,fp);
+	fread(&(File->PackedSize),4,1,fp);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	File->Offset = FR_bswap32(File->Offset);
 	File->OrigSize = FR_bswap32(File->OrigSize);
@@ -119,9 +124,10 @@ static void AllocateDir1(struct fo1_dir_t * dir, FILE * fp) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	dir->FileCount = FR_bswap32(dir->FileCount);
 #endif
+	printf("dir %s has %u files\n",dir->DirName,dir->FileCount);
 	fseek(fp,12,SEEK_CUR);
 	dir->File = (struct fo1_file_t*)malloc(dir->FileCount*sizeof(struct fo1_file_t));
-	for(i = 0; i < dir->FileCount; ++i) AllocateFile1(&dir->File[i],fp);
+	for(i = 0; i < dir->FileCount; ++i) AllocateFile1(&(dir->File[i]),fp);
 }
 
 static void AllocateDat1(struct fr_dat_handler_t * dat) {
@@ -131,6 +137,7 @@ static void AllocateDat1(struct fr_dat_handler_t * dat) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	fo1->DirectoryCount = FR_bswap32(fo1->DirectoryCount);
 #endif
+	printf("arc has %u dirs\n",fo1->DirectoryCount);
 	fseek(dat->fp,12,SEEK_CUR); /* Skipping unknowns and magic */
 	fo1->Directory = (struct fo1_dir_t*)malloc(fo1->DirectoryCount*sizeof(struct fo1_dir_t));
 	for(i = 0; i < fo1->DirectoryCount; ++i) AllocateDir1(&(fo1->Directory[i]), dat->fp);
@@ -192,6 +199,11 @@ static void CloseDat1(struct fr_dat_handler_t * dat) {
 	for(i = 0; i < fo1->DirectoryCount; ++i) CloseDir1(&fo1->Directory[i]);
 	free(fo1->Directory);
 }
+/*
+static CloseDat2(struct fr_dat_handler_t * dat) {
+	struct fo2_dat_t * fo2 = dat->proxy;
+	
+}*/
 
 void FR_CloseDAT(struct fr_dat_handler_t * dat) {
 	switch(dat->control & MULTIVERSION) {
@@ -208,6 +220,6 @@ int main(int argc, char **argv) {
 	if(argc != 2) exit(1);
 	FR_OpenDAT(argv[1],&okay);
 	FR_ReadDAT(&okay);
-	FR_CloseDAT(&okay);
-	return 0;
+/*	FR_CloseDAT(&okay);
+*/	return 0;
 }
