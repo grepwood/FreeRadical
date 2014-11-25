@@ -20,7 +20,7 @@ static char Dat1Check(char * path) {
 	fread(&t32,4,1,file);
 	arcsize = ftello(file);
 	fclose(file);
-#ifdef BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	Unknown[0] = FR_bswap32(Unknown[0]);
 	t32 = FR_bswap32(t32);
 #endif
@@ -38,7 +38,7 @@ static char Dat2Check(char * path) {
 	fseek(file,-4,SEEK_END);
 	fread(&SFF,4,1,file);
 	fclose(file);
-#ifdef BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	SFF = FR_bswap32(SFF);
 #endif
 	if(SFF == FileSize) return 2;
@@ -100,11 +100,12 @@ static void AllocateFile1(struct fo1_file_t * File, FILE * fp) {
 	fread(&File->Offset,4,1,fp);
 	fread(&File->OrigSize,4,1,fp);
 	fread(&File->PackedSize,4,1,fp);
-#ifndef BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	File->Offset = FR_bswap32(File->Offset);
 	File->OrigSize = FR_bswap32(File->OrigSize);
 	File->PackedSize = FR_bswap32(File->PackedSize);
 #endif
+	File->Buffer = NULL;
 }
 
 static void AllocateDir1(struct fo1_dir_t * dir, FILE * fp) {
@@ -115,7 +116,7 @@ static void AllocateDir1(struct fo1_dir_t * dir, FILE * fp) {
 	fread(dir->DirName,dir->Length,1,fp);
 	dir->DirName[dir->Length] = 0;
 	fread(&dir->FileCount,4,1,fp);
-#ifndef BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	dir->FileCount = FR_bswap32(dir->FileCount);
 #endif
 	fseek(fp,12,SEEK_CUR);
@@ -124,16 +125,15 @@ static void AllocateDir1(struct fo1_dir_t * dir, FILE * fp) {
 }
 
 static void AllocateDat1(struct fr_dat_handler_t * dat) {
-	uint32_t CurrentDir;
+	uint32_t i;
 	struct fo1_dat_t * fo1 = dat->proxy = (struct fo1_dat_t*)malloc(sizeof(struct fo1_dat_t));
-	fread(&(fo1->DirectoryCount),4,1,dat->fp);
-#ifndef BIG_ENDIAN
+	fread(&fo1->DirectoryCount,4,1,dat->fp);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	fo1->DirectoryCount = FR_bswap32(fo1->DirectoryCount);
 #endif
 	fseek(dat->fp,12,SEEK_CUR); /* Skipping unknowns and magic */
 	fo1->Directory = (struct fo1_dir_t*)malloc(fo1->DirectoryCount*sizeof(struct fo1_dir_t));
-	printf("Allocated %iu dir structures into %lu bytes\n",fo1->DirectoryCount,fo1->DirectoryCount*sizeof(struct fo1_dir_t));
-	for(CurrentDir = 0; CurrentDir < fo1->DirectoryCount; ++CurrentDir) AllocateDir1(&(fo1->Directory[CurrentDir]), dat->fp);
+	for(i = 0; i < fo1->DirectoryCount; ++i) AllocateDir1(&(fo1->Directory[i]), dat->fp);
 }
 
 static void AllocateFile2(struct fo2_file_t * dat, FILE * fp) {
@@ -148,13 +148,13 @@ static void AllocateDat2(struct fr_dat_handler_t * dat) {
 	fseek(dat->fp,-8,SEEK_END);
 	fread(&fo2->TreeSize,4,1,dat->fp);
 	fread(&fo2->DatSize,4,1,dat->fp);
-#ifdef BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	fo2->TreeSize = FR_bswap32(fo2->TreeSize);
 	fo2->DatSize = FR_bswap32(fo2->DatSize);
 #endif
 	fseek(dat->fp,fo2->DatSize - fo2->TreeSize - 12,SEEK_SET);
 	fread(&fo2->FilesTotal,4,1,dat->fp);
-#ifdef BIG_ENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	fo2->FilesTotal = FR_bswap32(fo2->FilesTotal);
 #endif
 	fo2->File = (struct fo2_file_t*)malloc(fo2->FilesTotal*sizeof(struct fo2_file_t));
@@ -174,10 +174,40 @@ void FR_ReadDAT(struct fr_dat_handler_t * dat) {
 	}
 }
 
+static void CloseFile1(struct fo1_file_t * dat) {
+	free(dat->Name);
+	if(dat->Buffer != NULL) free(dat->Buffer);
+}
+
+static void CloseDir1(struct fo1_dir_t * dat) {
+	uint32_t i;
+	free(dat->DirName);
+	for(i = 0; i < dat->FileCount; ++i) CloseFile1(&dat->File[i]);
+	free(dat->File);
+}
+
+static void CloseDat1(struct fr_dat_handler_t * dat) {
+	uint32_t i;
+	struct fo1_dat_t * fo1 = dat->proxy;
+	for(i = 0; i < fo1->DirectoryCount; ++i) CloseDir1(&fo1->Directory[i]);
+	free(fo1->Directory);
+}
+
+void FR_CloseDAT(struct fr_dat_handler_t * dat) {
+	switch(dat->control & MULTIVERSION) {
+		case 1: CloseDat1(dat); break;
+/*		case 2: CloseDat2(dat); break;
+		case 4: CloseDatX(dat); break;
+*/	}
+	fclose(dat->fp);
+	free(dat->proxy);
+}
+
 int main(int argc, char **argv) {
 	struct fr_dat_handler_t okay;
 	if(argc != 2) exit(1);
 	FR_OpenDAT(argv[1],&okay);
 	FR_ReadDAT(&okay);
+	FR_CloseDAT(&okay);
 	return 0;
 }
