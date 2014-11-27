@@ -33,8 +33,8 @@ static char Dat1Check(char * path) {
 #endif
 	t64 = t32;
 	if((Unknown[0] == 0x0A || Unknown[0] == 0x5E) && Unknown[1] == 0 && t64 != arcsize) {
-		if(Unknown[0]== 0x5E) return MASTER1;
-		else return 0;
+		if(Unknown[0] == 0x5E) return MASTER1;
+		else return 1;
 	}
 	else return 0;
 }
@@ -116,21 +116,23 @@ static void AllocateFile1(struct fo1_file_t * File, FILE * fp) {
 	File->Buffer = NULL;
 }
 
-static void AllocateDir1(struct fo1_dir_t * dir, FILE * fp) {
+static void NameDir1(struct fo1_dir_t * dir, FILE * fp) {
 	int16_t l = fgetc(fp) & 0x00ff;
-	long i;
 	dir->Length = l;
 	dir->DirName = (char*)malloc(++l);
 	fread(dir->DirName,dir->Length,1,fp);
 	dir->DirName[dir->Length] = 0;
+}
+
+static void AssignFiles2Dir1(struct fo1_dir_t * dir, FILE * fp) {
+	uint32_t i;
 	fread(&dir->FileCount,4,1,fp);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	dir->FileCount = FR_bswap32(dir->FileCount);
 #endif
-	printf("dir %s has %u files\n",dir->DirName,dir->FileCount);
 	fseek(fp,12,SEEK_CUR);
 	dir->File = (struct fo1_file_t*)malloc(dir->FileCount*sizeof(struct fo1_file_t));
-	for(i = 0; i < dir->FileCount; ++i) AllocateFile1(&(dir->File[i]),fp);
+	for(i = 0; i < dir->FileCount; ++i) AllocateFile1(&dir->File[i],fp);
 }
 
 static void AllocateDat1(struct fr_dat_handler_t * dat) {
@@ -140,12 +142,11 @@ static void AllocateDat1(struct fr_dat_handler_t * dat) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	fo1->DirectoryCount = FR_bswap32(fo1->DirectoryCount);
 #endif
-	printf("arc has %u dirs\n",fo1->DirectoryCount);
 /* Skipping unknowns and magic */
-	if(dat->control & MASTER) fseek(dat->fp,14,SEEK_CUR);
-	else fseek(dat->fp,12,SEEK_CUR);
+	fseek(dat->fp,12,SEEK_CUR);
 	fo1->Directory = (struct fo1_dir_t*)malloc(fo1->DirectoryCount*sizeof(struct fo1_dir_t));
-	for(i = 0; i < fo1->DirectoryCount; ++i) AllocateDir1(&(fo1->Directory[i]), dat->fp);
+	for(i = 0; i < fo1->DirectoryCount; ++i) NameDir1(&fo1->Directory[i], dat->fp);
+	for(i = 0; i < fo1->DirectoryCount; ++i) AssignFiles2Dir1(&fo1->Directory[i],dat->fp);
 }
 
 static void AllocateFile2(struct fo2_file_t * dat, FILE * fp) {
@@ -225,6 +226,6 @@ int main(int argc, char **argv) {
 	if(argc != 2) exit(1);
 	FR_OpenDAT(argv[1],&okay);
 	FR_ReadDAT(&okay);
-/*	FR_CloseDAT(&okay);
-*/	return 0;
+	FR_CloseDAT(&okay);
+	return 0;
 }
