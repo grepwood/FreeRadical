@@ -82,7 +82,7 @@ static void AllocateFile1(struct fo1_file_t * File, FILE * fp) {
 	File->Name = (char*)malloc(++i);
 	fread(File->Name,File->NameLength,1,fp);
 	File->Name[File->NameLength] = 0;
-	fseek(fp,3,SEEK_CUR); /* Skipping big endian zeros */
+	fseeko(fp,3,SEEK_CUR); /* Skipping big endian zeros */
 	File->Attributes = fgetc(fp) >> 6;
 	fread(&File->Offset,4,1,fp);
 	fread(&(File->OrigSize),4,1,fp);
@@ -109,7 +109,7 @@ static void AssignFiles2Dir1(struct fo1_dir_t * dir, FILE * fp) {
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	dir->FileCount = FR_bswap32(dir->FileCount);
 #endif
-	fseek(fp,12,SEEK_CUR);
+	fseeko(fp,12,SEEK_CUR);
 	dir->File = (struct fo1_file_t*)malloc(dir->FileCount*sizeof(struct fo1_file_t));
 	for(i = 0; i < dir->FileCount; ++i) AllocateFile1(&dir->File[i],fp);
 }
@@ -122,7 +122,7 @@ static void AllocateDat1(struct fr_dat_handler_t * dat) {
 	fo1->DirectoryCount = FR_bswap32(fo1->DirectoryCount);
 #endif
 /* Skipping unknowns and magic */
-	fseek(dat->fp,12,SEEK_CUR);
+	fseeko(dat->fp,12,SEEK_CUR);
 	fo1->Directory = (struct fo1_dir_t*)malloc(fo1->DirectoryCount*sizeof(struct fo1_dir_t));
 	for(i = 0; i < fo1->DirectoryCount; ++i) NameDir1(&fo1->Directory[i], dat->fp);
 	for(i = 0; i < fo1->DirectoryCount; ++i) AssignFiles2Dir1(&fo1->Directory[i],dat->fp);
@@ -130,27 +130,49 @@ static void AllocateDat1(struct fr_dat_handler_t * dat) {
 
 static void AllocateFile2(struct fo2_file_t * dat, FILE * fp) {
 	fread(&dat->NameLength,4,1,fp);
-	
-/*	fread(&dat->)*/
+	if(dat->NameLength == 0xFFFFFFFF) {
+		fputs("Fallout 2 filename exceeds 32bit bounds!\n",stderr);
+		fseeko(fp,0xFFFFFFFF,SEEK_CUR);
+	} else {
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+		dat->NameLength = FR_bswap32(dat->NameLength);
+#endif
+		dat->Name = (char*)malloc(dat->NameLength+1);
+		fread(dat->Name,dat->NameLength,1,fp);
+		dat->Name[dat->NameLength] = 0;
+	}
+	dat->Attributes = fgetc(fp) << 1;
+	fread(&dat->OrigSize,4,1,fp);
+	fread(&dat->PackedSize,4,1,fp);
+	fread(&dat->Offset,4,1,fp);
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	dat->OrigSize = FR_bswap32(dat->OrigSize);
+	dat->PackedSize = FR_bswap32(dat->PackedSize);
+	dat->Offset = FR_bswap32(dat->Offset);
+#endif
+	dat->Buffer = NULL;
 }
 
 static void AllocateDat2(struct fr_dat_handler_t * dat) {
 	uint32_t i;
 	struct fo2_dat_t * fo2 = dat->proxy = (struct fo2_dat_t*)malloc(sizeof(struct fo2_dat_t));
-	fseek(dat->fp,-8,SEEK_END);
+	fseeko(dat->fp,-8,SEEK_END);
 	fread(&fo2->TreeSize,4,1,dat->fp);
 	fread(&fo2->DatSize,4,1,dat->fp);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	fo2->TreeSize = FR_bswap32(fo2->TreeSize);
 	fo2->DatSize = FR_bswap32(fo2->DatSize);
 #endif
-	fseek(dat->fp,fo2->DatSize - fo2->TreeSize - 12,SEEK_SET);
+	fseeko(dat->fp,fo2->DatSize - fo2->TreeSize - 12,SEEK_SET);
 	fread(&fo2->FilesTotal,4,1,dat->fp);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	fo2->FilesTotal = FR_bswap32(fo2->FilesTotal);
 #endif
+	printf("Files total: %u\n",fo2->FilesTotal);
 	fo2->File = (struct fo2_file_t*)malloc(fo2->FilesTotal*sizeof(struct fo2_file_t));
-	for(i = 0; i < fo2->TreeSize; ++i) AllocateFile2(&fo2->File[i],dat->fp);
+	for(i = 0; i < fo2->FilesTotal; ++i) {
+		AllocateFile2(&fo2->File[i],dat->fp);
+	}
 }
 
 static void AllocateDatX(struct fr_dat_handler_t * dat) {
