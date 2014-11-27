@@ -163,16 +163,14 @@ static void AllocateDat2(struct fr_dat_handler_t * dat) {
 	fo2->TreeSize = FR_bswap32(fo2->TreeSize);
 	fo2->DatSize = FR_bswap32(fo2->DatSize);
 #endif
-	fseeko(dat->fp,fo2->DatSize - fo2->TreeSize - 12,SEEK_SET);
+	fseeko(dat->fp,fo2->DatSize - fo2->TreeSize - 8,SEEK_SET);
 	fread(&fo2->FilesTotal,4,1,dat->fp);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	fo2->FilesTotal = FR_bswap32(fo2->FilesTotal);
 #endif
 	printf("Files total: %u\n",fo2->FilesTotal);
 	fo2->File = (struct fo2_file_t*)malloc(fo2->FilesTotal*sizeof(struct fo2_file_t));
-	for(i = 0; i < fo2->FilesTotal; ++i) {
-		AllocateFile2(&fo2->File[i],dat->fp);
-	}
+	for(i = 0; i < fo2->FilesTotal; ++i) AllocateFile2(&fo2->File[i],dat->fp);
 }
 
 static void AllocateDatX(struct fr_dat_handler_t * dat) {
@@ -206,17 +204,24 @@ static void CloseDat1(struct fr_dat_handler_t * dat) {
 	for(i = 0; i < fo1->DirectoryCount; ++i) CloseDir1(&fo1->Directory[i]);
 	free(fo1->Directory);
 }
-/*
-static CloseDat2(struct fr_dat_handler_t * dat) {
+
+static void CloseFile2(struct fo2_file_t * dat) {
+	free(dat->Name);
+	if(dat->Buffer != NULL) free(dat->Buffer);
+}
+
+static void CloseDat2(struct fr_dat_handler_t * dat) {
+	uint32_t i;
 	struct fo2_dat_t * fo2 = dat->proxy;
-	
-}*/
+	for(i = 0; i < fo2->FilesTotal; ++i) CloseFile2(&fo2->File[i]);
+	free(fo2->File);
+}
 
 void FR_CloseDAT(struct fr_dat_handler_t * dat) {
 	switch(dat->control & MULTIVERSION) {
 		case 1: CloseDat1(dat); break;
-/*		case 2: CloseDat2(dat); break;
-		case 4: CloseDatX(dat); break;
+		case 2: CloseDat2(dat); break;
+/*		case 4: CloseDatX(dat); break;
 */	}
 	fclose(dat->fp);
 	free(dat->proxy);
