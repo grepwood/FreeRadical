@@ -7,51 +7,33 @@
 #include "dataio/dat.h"
 #include "dataio/BigEndian.h"
 
-#define _FILE_OFFSET_BITS 64
-#define UNKNOWN_ERROR -32
-#define MULTIVERSION 7
-#define FILE_IS_OPEN 8
-#define MASTER 16
-#define MASTER1 17
-#define MASTER2 18
-#define MASTERX 20
 static char Dat1Check(char * path) {
 	FILE * file = fopen(path,"rb");
-	uint64_t arcsize;
-	uint64_t t64;
-	uint32_t t32;
-	int Unknown[2];
-	fseek(file,4,SEEK_SET);
+	uint32_t Unknown[2];
+	fseeko(file,4,SEEK_SET);
 	fread(Unknown,4,2,file);
-	fseek(file,-4,SEEK_END);
-	fread(&t32,4,1,file);
-	arcsize = ftello(file);
 	fclose(file);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	Unknown[0] = FR_bswap32(Unknown[0]);
-	t32 = FR_bswap32(t32);
 #endif
-	t64 = t32;
-	if((Unknown[0] == 0x0A || Unknown[0] == 0x5E) && Unknown[1] == 0 && t64 != arcsize) {
-		if(Unknown[0] == 0x5E) return MASTER1;
-		else return 1;
-	}
+	if((Unknown[0] == 0x0A || Unknown[0] == 0x5E) && !Unknown[1]) return FO1_DAT;
 	else return 0;
 }
 
 static char Dat2Check(char * path) {
 	FILE * file = fopen(path,"rb");
-	size_t FileSize;
-	uint32_t SFF;
-	fseek(file,0,SEEK_END);
-	FileSize = ftell(file);
-	fseek(file,-4,SEEK_END);
-	fread(&SFF,4,1,file);
+	uint64_t arcsize;
+	uint64_t t64;
+	uint32_t t32;
+	fseeko(file,-4,SEEK_END);
+	fread(&t32,4,1,file);
+	arcsize = ftello(file);
 	fclose(file);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	SFF = FR_bswap32(SFF);
+	t32 = FR_bswap32(t32);
 #endif
-	if(SFF == FileSize) return 2;
+	t64 = t32;
+	if(t64 == arcsize) return FO2_DAT;
 	else return 0;
 }
 
@@ -59,15 +41,12 @@ static char DatXCheck(char * path) {
 	fputs("DatX has not been drafted yet.\n",stderr);
 	fprintf(stderr,"File path is %s\n",path);
 	return 0;/*
-	else return 4;
+	else return FR_DAT;
 */}
 
 #ifndef BUILTIN_POPCNT
 char FR_popcnt(char n) {
-/*	static const char m1 = 85; 255/3
-	static const char m2 = 51; 255/5
-	static const char m4 = 15; 255/17
-*/	n -= (n>>1) & 85;
+	n -= (n>>1) & 85;
 	n = (n & 51) + ((n >> 2) & 51);
 	n = (n + (n >> 4)) & 15;
 	return n & 0x7F;
@@ -219,13 +198,4 @@ void FR_CloseDAT(struct fr_dat_handler_t * dat) {
 */	}
 	fclose(dat->fp);
 	free(dat->proxy);
-}
-
-int main(int argc, char **argv) {
-	struct fr_dat_handler_t okay;
-	if(argc != 2) exit(1);
-	FR_OpenDAT(argv[1],&okay);
-	FR_ReadDAT(&okay);
-	FR_CloseDAT(&okay);
-	return 0;
 }
