@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include "dataio/text.h"
 #include "map/map.h"
 
 uint32_t GetMapVersion(FILE * Map) {
@@ -9,16 +10,16 @@ uint32_t GetMapVersion(FILE * Map) {
 }
 
 /* Function for handling modern MAP files */
-char * textline(FILE * stream) {
+char * FR_textline(FILE * stream) {
 	char * result = NULL;
 	size_t len = 0;
-	size_t offset = ftell(stream);
+	size_t offset = ftello(stream);
 	char buf;
 	do {
 		buf = fgetc(stream);
 		if(buf) ++len;
 	} while(buf);
-	fseek(stream,offset,SEEK_SET);
+	fseeko(stream,offset,SEEK_SET);
 	result = malloc(len+1);
 	if(result) {
 		fread(result,len,1,stream);
@@ -36,31 +37,27 @@ char * GetFileName(FILE * Map, unsigned char version) {
 		result = malloc(17);
 		fread(result,16,1,Map);
 		result[16] = 0;
+		return result;
 	}
-	else {
-		result = textline(Map);
-	}
-	return result;
+	else return FR_textline(Map);
 }
 
-struct map_header * FillMapHeader(FILE * Map) {
-	struct map_header result;
-	char endian = BigEndian();
+static void FillMapHeader(struct map_header * result, FILE * Map) {
+	uint32_t buf;
 	fread(buf,4,1,Map);
-	if(!endian) {
-		buf = FR_bswap32(buf);
-	}
-	result.filename = GetFileName(Map,result.version);
-	fread(result.default_player_position,4,1,Map);
-	fread(result.default_elevation,4,1,Map);
-	fread(result.player_orientation,4,1,Map);
-	fread(result.NUM-LOCAL-VARS,4,1,Map);
-	fread(result.SID,4,1,Map);
-	fread(result.elevation_flags,4,1,Map);
-	fread(result.NUM-GLOBAL-VARS,4,1,Map);
-	fread(result.map_id,4,1,Map);
-	fread(result.time_since_epoch,4,1,Map);
-	return &result;
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	buf = FR_bswap32(buf);
+#endif
+	result->filename = GetFileName(Map,result.version);
+	fread(result->default_player_position,4,1,Map);
+	fread(result->default_elevation,4,1,Map);
+	fread(result->player_orientation,4,1,Map);
+	fread(result->NUM_LOCAL_VARS,4,1,Map);
+	fread(result->SID,4,1,Map);
+	fread(result->elevation_flags,4,1,Map);
+	fread(result->NUM-GLOBAL-VARS,4,1,Map);
+	fread(result->map_id,4,1,Map);
+	fread(result->time_since_epoch,4,1,Map);
 }
 
 tile_t tile = malloc(80000);

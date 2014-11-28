@@ -1,11 +1,15 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <zlib.h>
 #include <lzss.h>
 
 #include "dataio/dat.h"
+#include "dataio/text.h"
 #include "dataio/BigEndian.h"
+
+unsigned char DATX_MAGIC[8] = {0x66,0x72,0x67,0x77,0x54,0x78,0x42,0xF0};
 
 static char Dat1Check(char * path) {
 	FILE * file = fopen(path,"rb");
@@ -38,11 +42,13 @@ static char Dat2Check(char * path) {
 }
 
 static char DatXCheck(char * path) {
-	fputs("DatX has not been drafted yet.\n",stderr);
-	fprintf(stderr,"File path is %s\n",path);
-	return 0;/*
-	else return FR_DAT;
-*/}
+	char a[8];
+	FILE * fp = fopen(path,"rb");
+	fread(a,8,1,fp);
+	fclose(fp);
+	if(!memcmp(a,DATX_MAGIC,8)) return FR_DAT;
+	else return 0;
+}
 
 #ifndef BUILTIN_POPCNT
 char FR_popcnt(char n) {
@@ -173,9 +179,30 @@ static void AllocateDat2(struct fr_dat_handler_t * dat) {
 	for(i = 0; i < fo2->FilesTotal; ++i) AllocateFile2(&fo2->File[i],dat->fp);
 }
 
+static void AllocateFileX(struct fr_file_t * dat, FILE * fp) {
+	dat->Name = FR_textline(fp);
+	dat->Attributes = fgetc(fp);
+	fread(&dat->Offset,8,1,fp);
+	fread(&dat->OrigSize,8,1,fp);
+	fread(&dat->PackedSize,8,1,fp);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	dat->Offset = FR_bswap64(dat->Offset);
+	dat->OrigSize = FR_bswap64(dat->OrigSize);
+	dat->PackedSize = FR_bswap64(dat->PackedSize);
+#endif
+	dat->Buffer = NULL;
+}
+
 static void AllocateDatX(struct fr_dat_handler_t * dat) {
-	size_t i = (size_t)dat;
-	i = i+i;
+	uint64_t i;
+	struct fr_dat_t * fr = dat->proxy = (struct fr_dat_t*)malloc(sizeof(struct fr_dat_t));
+	fseeko(dat->fp,8,SEEK_SET);
+	fread(&fr->FileCount,8,1,dat->fp);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	fr->FileCount = FR_bswap64(fr->FileCount);
+#endif
+	fr->File = (struct fr_file_t*)malloc(fr->FileCount*sizeof(struct fr_file_t));
+	for(i = 0; i < fr->FileCount; ++i) AllocateFileX(&fr->File[i],dat->fp);
 }
 
 void FR_ReadDAT(struct fr_dat_handler_t * dat) {
@@ -217,12 +244,25 @@ static void CloseDat2(struct fr_dat_handler_t * dat) {
 	free(fo2->File);
 }
 
+static void CloseFileX(struct fr_file_t * dat) {
+	free(dat->Name);
+	if(dat->Buffer != NULL) free(dat->Buffer);
+}
+
+static void CloseDatX(struct fr_dat_handler_t * dat) {
+	uint64_t i;
+	struct fr_dat_t * fr = dat->proxy;
+	for(i = 0; i < fr->FileCount; ++i) CloseFileX(&fr->File[i]);
+	free(fr->File);
+}
+
 void FR_CloseDAT(struct fr_dat_handler_t * dat) {
 	switch(dat->control & MULTIVERSION) {
 		case 1: CloseDat1(dat); break;
 		case 2: CloseDat2(dat); break;
-/*		case 4: CloseDatX(dat); break;
-*/	}
+		case 4: CloseDatX(dat); break;
+	}
 	fclose(dat->fp);
+	dat->control &= ~FILE_IS_OPEN;
 	free(dat->proxy);
 }
