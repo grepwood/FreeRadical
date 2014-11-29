@@ -1,6 +1,5 @@
 #include <stdio.h>
 #if _FILE_OFFSET_BITS < 64
-#	unfedine _FILE_OFFSET_BITS
-#	define _FILE_OFFSET_BITS 64
-#ifdef
+#	error "File offsets must be 64bit"
+#endif
 char * FR_textline(FILE * stream);

@@ -62,10 +62,21 @@ struct fo2_dat_t {
 	struct fo2_file_t * File;
 };
 
+struct fr_file_t {
+	char * Name;		/* Null-terminated C string */
+	char Attributes;	/* Universal FR compression flags */
+	uint64_t Offset;
+	uint64_t OrigSize;
+	uint64_t PackedSize;
+	char * Buffer;
+};
 
-/* This will be defined in the future
+/* Magic number in hex: 66 72 67 77 54 78 42 F0
+ * or "frgw" followed by 1417167600 */
 struct fr_dat_t {
-};*/
+	uint64_t FileCount;
+	struct fr_file_t * File;
+};
 
 struct fr_dat_handler_t {
 	FILE * fp;
@@ -73,9 +84,24 @@ struct fr_dat_handler_t {
 	void * proxy;
 };
 
+#ifndef BUILTIN_POPCNT
+char FR_popcnt(char n);
+#else
+#	if defined __GNUC__ && defined linux
+#		include <popcntintrin.h>
+#		define FR_popcnt(x) __builtin_popcount((int)x)
+#	else
+#		error "Need popcnt support on your system"
+#	endif
+#endif
+
 /* Public functions */
 #ifndef BUILTIN_POPCNT	/* Nehalem and newer Intel have opcode for this */
 char FR_popcnt(char n);	/* Computes Hamming weight of a char, helps detect version collision */
+#else
+#	ifdef GNUC
+#		define FR_popcnt(x) __builtin_popcount((int)x)
+#	endif
 #endif
 void FR_OpenDAT(char * path, struct fr_dat_handler_t * dat);	/* Identifies .dat and opens if supported */
 void FR_ReadDAT(struct fr_dat_handler_t * dat);					/* Indexes opened .dat */

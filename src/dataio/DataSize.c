@@ -14,8 +14,12 @@ unsigned char DATX_MAGIC[8] = {0x66,0x72,0x67,0x77,0x54,0x78,0x42,0xF0};
 static char Dat1Check(char * path) {
 	FILE * file = fopen(path,"rb");
 	uint32_t Unknown[2];
+	uint64_t i;
+	int e;
 	fseeko(file,4,SEEK_SET);
-	fread(Unknown,4,2,file);
+	i = ftello(file);
+	e = fread(Unknown,4,2,file);
+	if(e != 2) fprintf(stderr,"Dat1Check couldn't read 2 dwords from 0x%lx\n",i);
 	fclose(file);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	Unknown[0] = FR_bswap32(Unknown[0]);
@@ -27,10 +31,12 @@ static char Dat1Check(char * path) {
 static char Dat2Check(char * path) {
 	FILE * file = fopen(path,"rb");
 	uint64_t arcsize;
-	uint64_t t64;
+	uint64_t t64 = ftello(file);
 	uint32_t t32;
+	int e;
 	fseeko(file,-4,SEEK_END);
-	fread(&t32,4,1,file);
+	e = fread(&t32,4,1,file);
+	if(!e) fprintf(stderr,"Dat2Check failed to read dword at 0x%lx\n",t64);
 	arcsize = ftello(file);
 	fclose(file);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -44,25 +50,12 @@ static char Dat2Check(char * path) {
 static char DatXCheck(char * path) {
 	char a[8];
 	FILE * fp = fopen(path,"rb");
-	fread(a,8,1,fp);
+	int e = fread(a,8,1,fp);
+	if(!e) fputs("DatXCheck failed to read qword at 0x0\n",stderr);
 	fclose(fp);
 	if(!memcmp(a,DATX_MAGIC,8)) return FR_DAT;
 	else return 0;
 }
-
-#ifndef BUILTIN_POPCNT
-char FR_popcnt(char n) {
-	n -= (n>>1) & 85;
-	n = (n & 51) + ((n >> 2) & 51);
-	n = (n + (n >> 4)) & 15;
-	return n & 0x7F;
-}
-#else
-#	ifdef GNUC
-#		define FR_popcnt __builtin_popcount
-#	endif
-#endif
-
 
 static char IdentifyDat(char * path) {
 	char version = Dat1Check(path) | Dat2Check(path) | DatXCheck(path);
@@ -84,15 +77,24 @@ void FR_OpenDAT(char * path, struct fr_dat_handler_t * dat) {
 
 static void AllocateFile1(struct fo1_file_t * File, FILE * fp) {
 	int16_t i = fgetc(fp) & 0x00ff;
+	int e;
+	uint32_t o = ftello(fp);
 	File->NameLength = i;
 	File->Name = (char*)malloc(++i);
-	fread(File->Name,File->NameLength,1,fp);
+	e = fread(File->Name,File->NameLength,1,fp);
+	if(e != 1) fprintf(stderr,"AllocateFile1 failed to read string at 0x%x\n",o);
 	File->Name[File->NameLength] = 0;
 	fseeko(fp,3,SEEK_CUR); /* Skipping big endian zeros */
 	File->Attributes = fgetc(fp) >> 6;
-	fread(&File->Offset,4,1,fp);
-	fread(&(File->OrigSize),4,1,fp);
-	fread(&(File->PackedSize),4,1,fp);
+	o = ftello(fp);
+	e = fread(&File->Offset,4,1,fp);
+	if(e != 1) fprintf(stderr,"AllocateFile1 failed to read dword at 0x%x\n",o);
+	o = ftello(fp);
+	e = fread(&(File->OrigSize),4,1,fp);
+	if(e != 1) fprintf(stderr,"AllocateFile1 failed to read dword at 0x%x\n",o);
+	o = ftello(fp);
+	e = fread(&(File->PackedSize),4,1,fp);
+	if(e != 1) fprintf(stderr,"AllocateFile1 failed to read dword at 0x%x\n",o);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	File->Offset = FR_bswap32(File->Offset);
 	File->OrigSize = FR_bswap32(File->OrigSize);
@@ -103,15 +105,19 @@ static void AllocateFile1(struct fo1_file_t * File, FILE * fp) {
 
 static void NameDir1(struct fo1_dir_t * dir, FILE * fp) {
 	int16_t l = fgetc(fp) & 0x00ff;
+	int e;
+	uint32_t i = ftello(fp);
 	dir->Length = l;
 	dir->DirName = (char*)malloc(++l);
-	fread(dir->DirName,dir->Length,1,fp);
+	e = fread(dir->DirName,dir->Length,1,fp);
+	if(e != 1) fprintf(stderr,"NameDir1 failed to read string at 0x%x\n",i);
 	dir->DirName[dir->Length] = 0;
 }
 
 static void AssignFiles2Dir1(struct fo1_dir_t * dir, FILE * fp) {
-	uint32_t i;
-	fread(&dir->FileCount,4,1,fp);
+	uint32_t i = ftello(fp);
+	int e = fread(&dir->FileCount,4,1,fp);
+	if(!e) fprintf(stderr,"AssignFiles2Dir1 failed to read dword at 0x%x\n",i);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	dir->FileCount = FR_bswap32(dir->FileCount);
 #endif
@@ -123,7 +129,7 @@ static void AssignFiles2Dir1(struct fo1_dir_t * dir, FILE * fp) {
 static void AllocateDat1(struct fr_dat_handler_t * dat) {
 	uint32_t i;
 	struct fo1_dat_t * fo1 = dat->proxy = (struct fo1_dat_t*)malloc(sizeof(struct fo1_dat_t));
-	fread(&fo1->DirectoryCount,4,1,dat->fp);
+	i = fread(&fo1->DirectoryCount,4,1,dat->fp);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	fo1->DirectoryCount = FR_bswap32(fo1->DirectoryCount);
 #endif
@@ -135,7 +141,9 @@ static void AllocateDat1(struct fr_dat_handler_t * dat) {
 }
 
 static void AllocateFile2(struct fo2_file_t * dat, FILE * fp) {
-	fread(&dat->NameLength,4,1,fp);
+	uint32_t i = ftello(fp);
+	int e = fread(&dat->NameLength,4,1,fp);
+	if(!e) fprintf(stderr,"AllocateFile2 failed to read dword from 0x%x\n",i);
 	if(dat->NameLength == 0xFFFFFFFF) {
 		fputs("Fallout 2 filename exceeds 32bit bounds!\n",stderr);
 		fseeko(fp,0xFFFFFFFF,SEEK_CUR);
@@ -144,13 +152,13 @@ static void AllocateFile2(struct fo2_file_t * dat, FILE * fp) {
 		dat->NameLength = FR_bswap32(dat->NameLength);
 #endif
 		dat->Name = (char*)malloc(dat->NameLength+1);
-		fread(dat->Name,dat->NameLength,1,fp);
+		e = fread(dat->Name,dat->NameLength,1,fp);
 		dat->Name[dat->NameLength] = 0;
 	}
 	dat->Attributes = fgetc(fp) << 1;
-	fread(&dat->OrigSize,4,1,fp);
-	fread(&dat->PackedSize,4,1,fp);
-	fread(&dat->Offset,4,1,fp);
+	e = fread(&dat->OrigSize,4,1,fp);
+	e = fread(&dat->PackedSize,4,1,fp);
+	e = fread(&dat->Offset,4,1,fp);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	dat->OrigSize = FR_bswap32(dat->OrigSize);
 	dat->PackedSize = FR_bswap32(dat->PackedSize);
@@ -163,14 +171,14 @@ static void AllocateDat2(struct fr_dat_handler_t * dat) {
 	uint32_t i;
 	struct fo2_dat_t * fo2 = dat->proxy = (struct fo2_dat_t*)malloc(sizeof(struct fo2_dat_t));
 	fseeko(dat->fp,-8,SEEK_END);
-	fread(&fo2->TreeSize,4,1,dat->fp);
-	fread(&fo2->DatSize,4,1,dat->fp);
+	i = fread(&fo2->TreeSize,4,1,dat->fp);
+	i = fread(&fo2->DatSize,4,1,dat->fp);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	fo2->TreeSize = FR_bswap32(fo2->TreeSize);
 	fo2->DatSize = FR_bswap32(fo2->DatSize);
 #endif
 	fseeko(dat->fp,fo2->DatSize - fo2->TreeSize - 8,SEEK_SET);
-	fread(&fo2->FilesTotal,4,1,dat->fp);
+	i = fread(&fo2->FilesTotal,4,1,dat->fp);
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 	fo2->FilesTotal = FR_bswap32(fo2->FilesTotal);
 #endif
@@ -180,11 +188,18 @@ static void AllocateDat2(struct fr_dat_handler_t * dat) {
 }
 
 static void AllocateFileX(struct fr_file_t * dat, FILE * fp) {
+	int e;
+	uint64_t i = ftello(fp);
 	dat->Name = FR_textline(fp);
 	dat->Attributes = fgetc(fp);
-	fread(&dat->Offset,8,1,fp);
-	fread(&dat->OrigSize,8,1,fp);
-	fread(&dat->PackedSize,8,1,fp);
+	e = fread(&dat->Offset,8,1,fp);
+	if(!e) fprintf(stderr,"AllocateFileX failed to read Offset at 0x%lx\n",i);
+	i = ftello(fp);
+	e = fread(&dat->OrigSize,8,1,fp);
+	if(!e) fprintf(stderr,"AllocateFileX failed to read Offset at 0x%lx\n",i);
+	i = ftello(fp);
+	e = fread(&dat->PackedSize,8,1,fp);
+	if(!e) fprintf(stderr,"AllocateFileX failed to read Offset at 0x%lx\n",i);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	dat->Offset = FR_bswap64(dat->Offset);
 	dat->OrigSize = FR_bswap64(dat->OrigSize);
@@ -194,10 +209,12 @@ static void AllocateFileX(struct fr_file_t * dat, FILE * fp) {
 }
 
 static void AllocateDatX(struct fr_dat_handler_t * dat) {
-	uint64_t i;
+	uint64_t i = ftello(dat->fp);
+	int e;
 	struct fr_dat_t * fr = dat->proxy = (struct fr_dat_t*)malloc(sizeof(struct fr_dat_t));
 	fseeko(dat->fp,8,SEEK_SET);
-	fread(&fr->FileCount,8,1,dat->fp);
+	e = fread(&fr->FileCount,8,1,dat->fp);
+	if(!e) fprintf(stderr,"AllocateDatX failed to read file count at 0x%lx\n",i);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	fr->FileCount = FR_bswap64(fr->FileCount);
 #endif
