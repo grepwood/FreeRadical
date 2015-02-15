@@ -12,6 +12,10 @@
 #ifdef WINDOWS
 #	define OS_SLASH '\\'
 #else
+void unixify_path(char * path) {
+	size_t i, j;
+	for(j = 0, i = strlen(path); j < i; ++j) if(path[j] == '\\') path[j] = '/';
+}
 #	define OS_SLASH '/'
 #endif
 
@@ -47,6 +51,7 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 	FILE * fo = NULL;
 	struct lzss_t a = {NULL,0,0};
 	struct lzss_t b = {NULL,0,0};
+	struct lzss_settings settings = {12,1,18,0};
 	char * fpath = compound_strings(path,result,file->Name,file->NameLength);
 	printf("UnDATing %s:\n",fpath);
 	printf("\tJumping to offset 0x%x\n",file->Offset);
@@ -60,8 +65,8 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 		a.ptr = malloc(file->PackedSize);
 		a.size = file->PackedSize;
 		fread(a.ptr,file->PackedSize,1,fp);
-		lzss_decode_mm(&a,&b);
-		printf("\tliblzss predicted output %i\n",b.size);
+		lzss_decode_mm(&a,&b,&settings);
+		printf("\tliblzss predicted output %lu\n",(long)b.size);
 		free(a.ptr);
 	}
 	else {
@@ -80,29 +85,17 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 	else return -1;
 }
 
-void unixify_path(char * path) {
-	size_t i, j;
-	for(j = 0, i = sizeof(path); j < i; ++j) if(path[j] == '\\') path[j] = '/';
-}
-
-
 void f1undat(struct fr_dat_handler_t * dat, const char * path) {
 	char * a = NULL;
 	const size_t pathlen = strlen(path);
 	struct fo1_dat_t * fo1 = dat->proxy;
-	size_t substring;
 	uint32_t i, j;
 	int e;	
 	for(e = i = 0; i < fo1->DirectoryCount && !e; ++i, free(a)) {
-		substring = pathlen + fo1->Directory[i].Length;
-		a = malloc(substring+2);
-		memcpy(a,path,pathlen);
+		a = compound_strings(path,pathlen,fo1->Directory[i].DirName,fo1->Directory[i].Length);
 #ifndef WINDOWS
-		unixify_path(fo1->Directory[i].DirName);
+		unixify_path(a);
 #endif
-		a[pathlen] = OS_SLASH;
-		memcpy(a+pathlen+1,fo1->Directory[i].DirName,fo1->Directory[i].Length);
-		a[substring+1] = 0;
 		e = mkpath(a,0755);
 /*		for(j = 0; j < fo1->Directory[i].FileCount && !e; ++j) {
 */		for(j = 0; j < 1 && !e; ++j) {
