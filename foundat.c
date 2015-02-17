@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <lzss.h>
+#include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -9,6 +9,12 @@
 #include <libgen.h>
 #include <sys/param.h> /* for MAXPATHLEN */
 #include "dataio/dat.h"
+#include "dataio/BigEndian.h"
+
+/* Copyright 2015 Michael Dec <grepwood@sucs.org>
+ * This has only been tested on Linux. Run on Windows at your own risk!
+ */
+
 #ifdef WINDOWS
 #	define OS_SLASH '\\'
 #else
@@ -46,41 +52,78 @@ char * compound_strings(const char * a, unsigned char strlen_a, const char * b, 
 	return c;
 }
 
+#define N 4096
+#define F 18
+#define THRESHOLD 2
+#define GETBYTE() ((dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : 0xffff)
+void LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
+	uint16_t i;
+	uint16_t j;
+	uint16_t k;
+	int16_t c;
+	int dictionaryIndex = N - F;
+	uint16_t flags = 0;
+	int dwInputCurrent = 0;
+	int dwOutputIndex = 0;
+	char * text_buf = malloc(N+F-1);
+	memset(text_buf,' ',dictionaryIndex);
+	for ( ; ; ) {
+		if (((flags >>= 1) & 256) == 0) {
+			c = (dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : -1; if(c == -1) break;
+			flags = c | 0xff00;		/* uses higher byte to count 8 */
+		}
+		if (flags & 1) {
+			c = (dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : -1; if(c == -1) break;
+			arOut[dwOutputIndex++] = c;
+			text_buf[dictionaryIndex++] = c;
+			dictionaryIndex &= (N - 1);
+		}
+		else {
+			i = (dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : 0xffff; if(i == 0xffff) break;
+			j = (dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : 0xffff; if(j == 0xffff) break;
+			i |= ((j & 0xf0) << 4);
+			j = (j & 0x0f) + THRESHOLD;
+			for (k = 0; k <= j; k++) {
+				c = text_buf[(i + k) & (N - 1)];
+				arOut[dwOutputIndex++] = c;
+				text_buf[dictionaryIndex++] = c;
+				dictionaryIndex &= (N - 1);
+			}
+		}
+	}
+	free(text_buf);
+}
+
 int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 	int result = strlen(path);
 	FILE * fo = NULL;
-	struct lzss_t a = {NULL,0,0};
-	struct lzss_t b = {NULL,0,0};
-	struct lzss_settings settings = {12,1,18,0};
+	char * a = NULL;
+	char * b = NULL;
+	uint16_t blockDesc;
 	char * fpath = compound_strings(path,result,file->Name,file->NameLength);
-	printf("UnDATing %s:\n",fpath);
-	printf("\tJumping to offset 0x%x\n",file->Offset);
 	result = fseek(fp,SEEK_SET,file->Offset);
-	if(!result) printf("\tSuccessfully jumped to offset 0x%x\n",file->Offset);
-	else printf("\tfseek returned 0x%x\n",result);
-	printf("\tOriginal size: %i\n",file->OrigSize);
-	if(file->PackedSize && file->Attributes == LZSS) {
-		puts("\tCompression: LZSS");
-		printf("\tPacked size: %i\n",file->PackedSize);
-		a.ptr = malloc(file->PackedSize);
-		a.size = file->PackedSize;
-		fread(a.ptr,file->PackedSize,1,fp);
-		lzss_decode_mm(&a,&b,&settings);
-		printf("\tliblzss predicted output %lu\n",(long)b.size);
-		free(a.ptr);
+	fread(&blockDesc,2,1,fp);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	blockDesc = FR_bswap16(blockDesc);
+#endif
+	if(file->PackedSize && file->Attributes == LZSS && !(blockDesc & 0x8000)) {
+		printf("Extracting %s\t",fpath);
+		a = malloc(blockDesc & 0x7fff);
+		fread(a,blockDesc & 0x7fff,1,fp);
+		b = malloc(file->OrigSize);
+		LZSSDecode(a,blockDesc & 0x7fff,b);
+		free(a);
+	} else {
+		b = malloc(file->OrigSize);
+		printf("Dumping    %s\t",fpath);
+		fread(b,file->OrigSize,1,fp);
 	}
-	else {
-		b.ptr = malloc(file->OrigSize);
-		puts("\tCompression: none");
-		fread(b.ptr,file->OrigSize,1,fp);
-	}
-	if(result) {
-		fo = fopen(fpath,"wb");
-/*		result = fwrite(b.ptr,file->OrigSize,1,fo);
-*/		fclose(fo);
-	}
-	free(b.ptr);
+	fo = fopen(fpath,"wb");
+	result = fwrite(b,file->OrigSize,1,fo);
+	fclose(fo);
+	free(b);
 	free(fpath);
+	puts("done!");
 	if(result == 1) return 0;
 	else return -1;
 }
@@ -97,10 +140,9 @@ void f1undat(struct fr_dat_handler_t * dat, const char * path) {
 		unixify_path(a);
 #endif
 		e = mkpath(a,0755);
-/*		for(j = 0; j < fo1->Directory[i].FileCount && !e; ++j) {
-*/		for(j = 0; j < 1 && !e; ++j) {
+		for(j = 0; j < fo1->Directory[i].FileCount && !e; ++j) {
 			e = f1unpack(&fo1->Directory[i].File[j],a,dat->fp);
-			printf("e: %i\n",e);
+			if(e) printf("e: %i\n",e);
 		}
 	}
 }
