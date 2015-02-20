@@ -56,18 +56,18 @@ char * compound_strings(const char * a, unsigned char strlen_a, const char * b, 
 #define F 18
 #define THRESHOLD 2
 #define GETBYTE() ((dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : 0xffff)
-void LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
+void LZSSDecode(char* buffer, int dwInputLength, char* arOut, int dwOutputLength) {
 	uint16_t i;
 	uint16_t j;
 	uint16_t k;
+	uint16_t flags = 0;
 	int16_t c;
 	int dictionaryIndex = N - F;
-	uint16_t flags = 0;
 	int dwInputCurrent = 0;
 	int dwOutputIndex = 0;
 	char * text_buf = malloc(N+F-1);
 	memset(text_buf,' ',dictionaryIndex);
-	for ( ; ; ) {
+	while (dwOutputIndex < dwOutputLength || dwInputCurrent >= dwInputLength) {
 		if (((flags >>= 1) & 256) == 0) {
 			c = (dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : -1; if(c == -1) break;
 			flags = c | 0xff00;		/* uses higher byte to count 8 */
@@ -94,28 +94,38 @@ void LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
 	free(text_buf);
 }
 
-int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
+int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp, uint32_t j) {
 	int result = strlen(path);
 	FILE * fo = NULL;
 	char * a = NULL;
 	char * b = NULL;
 	uint16_t blockDesc;
 	char * fpath = compound_strings(path,result,file->Name,file->NameLength);
-	result = fseek(fp,SEEK_SET,file->Offset);
-	fread(&blockDesc,2,1,fp);
+	result = fseek(fp,SEEK_SET,file->Offset+2);
+/*	fread(&blockDesc,2,1,fp);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	blockDesc = FR_bswap16(blockDesc);
 #endif
-	if(file->PackedSize && file->Attributes == LZSS && !(blockDesc & 0x8000)) {
-		printf("Extracting %s\t",fpath);
-		a = malloc(blockDesc & 0x7fff);
-		fread(a,blockDesc & 0x7fff,1,fp);
+	if(j == 1 || j == 65) {
+*/		printf("\tOffset: 0x%x\n",file->Offset);
+		printf("\tOriginal size: %i\n",file->OrigSize);
+		printf("\tPacked size: %i\n",file->PackedSize-2);
+//		printf("\tblockDesc: 0x%hx\n",blockDesc);
+		printf("\tAttributes: 0x%x\n",file->Attributes);
+		printf("\tFile name: %s\n",file->Name);
+//	}
+//	if(file->PackedSize && file->Attributes == LZSS && !(blockDesc & 0x8000)) {
+	if(file->PackedSize && file->Attributes == LZSS) {
+//		printf("Extracting %s\t",fpath);
+//		a = malloc(blockDesc & 0x7fff);
+		a = malloc(file->PackedSize-2);
+		fread(a,file->PackedSize-2,1,fp);
 		b = malloc(file->OrigSize);
-		LZSSDecode(a,blockDesc & 0x7fff,b);
+		LZSSDecode(a,file->PackedSize-2,b,file->OrigSize);
 		free(a);
 	} else {
 		b = malloc(file->OrigSize);
-		printf("Dumping    %s\t",fpath);
+//		printf("Dumping    %s\t",fpath);
 		fread(b,file->OrigSize,1,fp);
 	}
 	fo = fopen(fpath,"wb");
@@ -123,7 +133,7 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 	fclose(fo);
 	free(b);
 	free(fpath);
-	puts("done!");
+//	puts("done!");
 	if(result == 1) return 0;
 	else return -1;
 }
@@ -140,8 +150,10 @@ void f1undat(struct fr_dat_handler_t * dat, const char * path) {
 		unixify_path(a);
 #endif
 		e = mkpath(a,0755);
+		printf("Files to extract: %u\n",fo1->Directory[i].FileCount);
 		for(j = 0; j < fo1->Directory[i].FileCount && !e; ++j) {
-			e = f1unpack(&fo1->Directory[i].File[j],a,dat->fp);
+			printf("Extracting file %i\n",j);
+			e = f1unpack(&fo1->Directory[i].File[j],a,dat->fp,j);
 			if(e) printf("e: %i\n",e);
 		}
 	}
@@ -153,6 +165,7 @@ int main(int argc, char **argv) {
 	FR_OpenDAT(argv[1],&dat);
 	FR_ReadDAT(&dat);
 	switch(dat.control & MULTIVERSION) {
+		case 0: puts("Not a Fallout archive"); break;
 		case 1: f1undat(&dat,argv[2]); break;
 		case 2: fputs("Not implemented yet.\n",stderr); break;
 		case 4: fputs("Not implemented yet.\n",stderr); break;
