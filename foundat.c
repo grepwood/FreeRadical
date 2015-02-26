@@ -37,7 +37,7 @@ int mkpath(const char *s, mode_t mode){
 	if ((mkdir(path, mode) == -1) && (errno != EEXIST)) rv = -1;
 	else rv = 0;
 out:
-	if (up != NULL) free(up);
+ 	if (up != NULL) free(up);
 	free(q);
 	free(path);
 	return (rv);
@@ -56,31 +56,27 @@ char * compound_strings(const char * a, unsigned char strlen_a, const char * b, 
 #define F 18
 #define THRESHOLD 2
 #define GETBYTE() ((dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : 0xffff)
-void LZSSDecode(char* buffer, int dwInputLength, char* arOut, int dwOutputLength) {
-	uint16_t i;
-	uint16_t j;
-	uint16_t k;
-	uint16_t flags = 0;
-	int16_t c;
+void LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
+	uint16_t i, j, k, c;
 	int dictionaryIndex = N - F;
+	uint16_t flags = 0;
 	int dwInputCurrent = 0;
 	int dwOutputIndex = 0;
 	char * text_buf = malloc(N+F-1);
 	memset(text_buf,' ',dictionaryIndex);
-	while (dwOutputIndex < dwOutputLength || dwInputCurrent >= dwInputLength) {
+	for ( ; ; ) {
 		if (((flags >>= 1) & 256) == 0) {
-			c = (dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : -1; if(c == -1) break;
+			if ((c = GETBYTE()) == 0xffff) break;
 			flags = c | 0xff00;		/* uses higher byte to count 8 */
 		}
 		if (flags & 1) {
-			c = (dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : -1; if(c == -1) break;
+			if ((c = GETBYTE()) == 0xffff) break;
 			arOut[dwOutputIndex++] = c;
 			text_buf[dictionaryIndex++] = c;
 			dictionaryIndex &= (N - 1);
-		}
-		else {
-			i = (dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : 0xffff; if(i == 0xffff) break;
-			j = (dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : 0xffff; if(j == 0xffff) break;
+		} else {
+			if ((i = GETBYTE()) == 0xffff) break;
+			if ((j = GETBYTE()) == 0xffff) break;
 			i |= ((j & 0xf0) << 4);
 			j = (j & 0x0f) + THRESHOLD;
 			for (k = 0; k <= j; k++) {
@@ -91,50 +87,44 @@ void LZSSDecode(char* buffer, int dwInputLength, char* arOut, int dwOutputLength
 			}
 		}
 	}
+	printf("Output would be %i\n",dwOutputIndex);
 	free(text_buf);
 }
 
-int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp, uint32_t j) {
+int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 	int result = strlen(path);
 	FILE * fo = NULL;
 	char * a = NULL;
 	char * b = NULL;
-	uint16_t blockDesc;
 	char * fpath = compound_strings(path,result,file->Name,file->NameLength);
-	result = fseek(fp,SEEK_SET,file->Offset+2);
-/*	fread(&blockDesc,2,1,fp);
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	blockDesc = FR_bswap16(blockDesc);
-#endif
-	if(j == 1 || j == 65) {
-*/		printf("\tOffset: 0x%x\n",file->Offset);
+	result = fseek(fp,file->Offset+2,SEEK_SET);
+		printf("\tOffset: 0x%x\n",file->Offset);
+		printf("\tLanded on: 0x%x\n",(int32_t)ftell(fp));
 		printf("\tOriginal size: %i\n",file->OrigSize);
 		printf("\tPacked size: %i\n",file->PackedSize-2);
-//		printf("\tblockDesc: 0x%hx\n",blockDesc);
 		printf("\tAttributes: 0x%x\n",file->Attributes);
 		printf("\tFile name: %s\n",file->Name);
-//	}
-//	if(file->PackedSize && file->Attributes == LZSS && !(blockDesc & 0x8000)) {
-	if(file->PackedSize && file->Attributes == LZSS) {
-//		printf("Extracting %s\t",fpath);
-//		a = malloc(blockDesc & 0x7fff);
-		a = malloc(file->PackedSize-2);
+/*	if(file->PackedSize && file->Attributes == LZSS && !(blockDesc & 0x8000)) {
+*/	if(file->PackedSize && file->Attributes == LZSS) {
+/*		printf("Extracting %s\t",fpath);
+*/		a = malloc(file->PackedSize-2);
 		fread(a,file->PackedSize-2,1,fp);
 		b = malloc(file->OrigSize);
-		LZSSDecode(a,file->PackedSize-2,b,file->OrigSize);
+		printf("\tAllocated for output: %i\n",file->OrigSize);
+		LZSSDecode(a,file->PackedSize-2,b);
 		free(a);
 	} else {
 		b = malloc(file->OrigSize);
-//		printf("Dumping    %s\t",fpath);
-		fread(b,file->OrigSize,1,fp);
+/*		printf("Dumping    %s\t",fpath);
+*/		fread(b,file->OrigSize,1,fp);
 	}
 	fo = fopen(fpath,"wb");
 	result = fwrite(b,file->OrigSize,1,fo);
 	fclose(fo);
 	free(b);
 	free(fpath);
-//	puts("done!");
-	if(result == 1) return 0;
+/*	puts("done!");
+*/	if(result == 1) return 0;
 	else return -1;
 }
 
@@ -152,9 +142,11 @@ void f1undat(struct fr_dat_handler_t * dat, const char * path) {
 		e = mkpath(a,0755);
 		printf("Files to extract: %u\n",fo1->Directory[i].FileCount);
 		for(j = 0; j < fo1->Directory[i].FileCount && !e; ++j) {
-			printf("Extracting file %i\n",j);
-			e = f1unpack(&fo1->Directory[i].File[j],a,dat->fp,j);
-			if(e) printf("e: %i\n",e);
+			if(j == 0 || j == 17 || j == 38) {
+				printf("Extracting file %i\n",j);
+				e = f1unpack(&fo1->Directory[i].File[j],a,dat->fp);
+				if(e) printf("e: %i\n",e);
+			}
 		}
 	}
 }
