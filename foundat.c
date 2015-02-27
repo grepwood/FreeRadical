@@ -56,7 +56,7 @@ char * compound_strings(const char * a, unsigned char strlen_a, const char * b, 
 #define F 18
 #define THRESHOLD 2
 #define GETBYTE() ((dwInputCurrent < dwInputLength) ? buffer[dwInputCurrent++] & 0x00FF : 0xffff)
-void LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
+int LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
 	uint16_t i, j, k, c;
 	int dictionaryIndex = N - F;
 	uint16_t flags = 0;
@@ -87,8 +87,8 @@ void LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
 			}
 		}
 	}
-	printf("Output would be %i\n",dwOutputIndex);
 	free(text_buf);
+	return dwOutputIndex;
 }
 
 int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
@@ -101,16 +101,9 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 	uint32_t TotalSize = 0;
 	char * fpath = compound_strings(path,result,file->Name,file->NameLength);
 	result = fseek(fp,file->Offset,SEEK_SET);
-	printf("\tOffset: 0x%x\n",file->Offset);
-	printf("\tLanded on: 0x%x\n",(int32_t)ftell(fp));
-	printf("\tOriginal size: %i\n",file->OrigSize);
-	printf("\tPacked size: %i\n",file->PackedSize);
-	printf("\tAttributes: 0x%x\n",file->Attributes);
-	printf("\tFile name: %s\n",file->Name);
+	b = malloc(file->OrigSize);
 	if(file->PackedSize && file->Attributes == LZSS) {
-		printf("Extracting %s\t",fpath);
-/* We need to count the number of blocks */
-		while(TotalSize < file->PackedSize) {
+		while(TotalSize+(blockAmount<<1) < file->PackedSize) {
 			++blockAmount;
 			blockDesc = realloc(blockDesc,blockAmount<<1);
 			fread(&blockDesc[blockAmount-1],2,1,fp);
@@ -118,29 +111,29 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 			blockDesc[blockAmount-1] = FR_bswap16(blockDesc[blockAmount-1]);
 #endif
 			fseek(fp,blockDesc[blockAmount-1],SEEK_CUR);
-			TotalSize += blockDesc[blockAmount-1] + 2;
+			TotalSize += blockDesc[blockAmount-1];
 		}
-		printf("Blocks: %hi\n",blockAmount);
-		for(result = 0; result < blockAmount; ++result) printf("BlockDesc[%i] 0x%hx\n",result, blockDesc[result]);
-/*		a = malloc(file->PackedSize-2);
-		fread(a,file->PackedSize-2,1,fp);
-		b = malloc(file->OrigSize);
-		printf("\tAllocated for output: %i\n",file->OrigSize);
-		LZSSDecode(a,file->PackedSize-2,b);
-		free(a);
-*/	} else {
-		b = malloc(file->OrigSize);
-/*		printf("Dumping    %s\t",fpath);
-*/		fread(b,file->OrigSize,1,fp);
-	}
-/*	fo = fopen(fpath,"wb");
+		fseek(fp,file->Offset+2,SEEK_SET);
+		for(result = 0, TotalSize = 0; result < blockAmount; ++result) {
+			if(blockDesc[result] & 0x8000) {
+				TotalSize += (blockDesc[result] & 0x7fff);
+				fread(b+TotalSize,blockDesc[result] & 0x7fff,1,fp);
+			} else {
+				a = malloc(blockDesc[result] & 0x7fff);
+				fread(a,blockDesc[result] & 0x7fff,1,fp);
+				TotalSize += LZSSDecode(a,blockDesc[result] & 0x7fff,b+TotalSize);
+				free(a);
+			}
+			fseek(fp,2,SEEK_CUR);
+		}
+	} else fread(b,file->OrigSize,1,fp);
+	fo = fopen(fpath,"wb");
 	result = fwrite(b,file->OrigSize,1,fo);
 	fclose(fo);
 	free(b);
-*/	free(fpath);
+	free(fpath);
 	free(blockDesc);
-/*	puts("done!");
-*/	if(result == 1) return 0;
+	if(result == 1) return 0;
 	else return -1;
 }
 
@@ -158,12 +151,12 @@ void f1undat(struct fr_dat_handler_t * dat, const char * path) {
 		e = mkpath(a,0755);
 		printf("Files to extract: %u\n",fo1->Directory[i].FileCount);
 		for(j = 0; j < fo1->Directory[i].FileCount && !e; ++j) {
-			if(j == 0 || j == 17 || j == 38) {
-				printf("Extracting file %i\n",j);
+/*			if(j == 0 || j == 17 || j == 38) {
+*/				printf("Extracting file %i\n",j);
 				e = f1unpack(&fo1->Directory[i].File[j],a,dat->fp);
 				if(e) printf("e: %i\n",e);
-			}
-		}
+/*			}
+*/		}
 	}
 }
 
