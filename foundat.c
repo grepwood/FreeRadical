@@ -96,33 +96,49 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 	FILE * fo = NULL;
 	char * a = NULL;
 	char * b = NULL;
+	uint16_t blockAmount = 0;
+	int16_t * blockDesc = NULL;
+	uint32_t TotalSize = 0;
 	char * fpath = compound_strings(path,result,file->Name,file->NameLength);
-	result = fseek(fp,file->Offset+2,SEEK_SET);
-		printf("\tOffset: 0x%x\n",file->Offset);
-		printf("\tLanded on: 0x%x\n",(int32_t)ftell(fp));
-		printf("\tOriginal size: %i\n",file->OrigSize);
-		printf("\tPacked size: %i\n",file->PackedSize-2);
-		printf("\tAttributes: 0x%x\n",file->Attributes);
-		printf("\tFile name: %s\n",file->Name);
-/*	if(file->PackedSize && file->Attributes == LZSS && !(blockDesc & 0x8000)) {
-*/	if(file->PackedSize && file->Attributes == LZSS) {
-/*		printf("Extracting %s\t",fpath);
-*/		a = malloc(file->PackedSize-2);
+	result = fseek(fp,file->Offset,SEEK_SET);
+	printf("\tOffset: 0x%x\n",file->Offset);
+	printf("\tLanded on: 0x%x\n",(int32_t)ftell(fp));
+	printf("\tOriginal size: %i\n",file->OrigSize);
+	printf("\tPacked size: %i\n",file->PackedSize);
+	printf("\tAttributes: 0x%x\n",file->Attributes);
+	printf("\tFile name: %s\n",file->Name);
+	if(file->PackedSize && file->Attributes == LZSS) {
+		printf("Extracting %s\t",fpath);
+/* We need to count the number of blocks */
+		while(TotalSize < file->PackedSize) {
+			++blockAmount;
+			blockDesc = realloc(blockDesc,blockAmount<<1);
+			fread(&blockDesc[blockAmount-1],2,1,fp);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+			blockDesc[blockAmount-1] = FR_bswap16(blockDesc[blockAmount-1]);
+#endif
+			fseek(fp,blockDesc[blockAmount-1],SEEK_CUR);
+			TotalSize += blockDesc[blockAmount-1] + 2;
+		}
+		printf("Blocks: %hi\n",blockAmount);
+		for(result = 0; result < blockAmount; ++result) printf("BlockDesc[%i] 0x%hx\n",result, blockDesc[result]);
+/*		a = malloc(file->PackedSize-2);
 		fread(a,file->PackedSize-2,1,fp);
 		b = malloc(file->OrigSize);
 		printf("\tAllocated for output: %i\n",file->OrigSize);
 		LZSSDecode(a,file->PackedSize-2,b);
 		free(a);
-	} else {
+*/	} else {
 		b = malloc(file->OrigSize);
 /*		printf("Dumping    %s\t",fpath);
 */		fread(b,file->OrigSize,1,fp);
 	}
-	fo = fopen(fpath,"wb");
+/*	fo = fopen(fpath,"wb");
 	result = fwrite(b,file->OrigSize,1,fo);
 	fclose(fo);
 	free(b);
-	free(fpath);
+*/	free(fpath);
+	free(blockDesc);
 /*	puts("done!");
 */	if(result == 1) return 0;
 	else return -1;
