@@ -25,17 +25,14 @@ static int8_t bmpheader[54] = {	66,77,54,16,14,0,0,0,0,0,54,0,0,0,40,0,0,0,128,2
 
 char IsFalloutRIX(FILE * Splash) { /* File must be set on beginning */
 	char result = 0;
+	size_t i;
 	static size_t ActualSize;
 	static struct RIXheader RIX;
 	fread(&RIX.Signature,4,1,Splash);
-	fread(&RIX.Width,2,1,Splash);
-	fread(&RIX.Height,2,1,Splash);
+	i = FR_fread_l16(&RIX.Width,Splash);
+	i = FR_fread_l16(&RIX.Height,Splash);
 	RIX.PT = fgetc(Splash);
 	RIX.ST = fgetc(Splash);
-	if(BigEndian()) {
-		RIX.Width = FR_bswap16(RIX.Width);
-		RIX.Height = FR_bswap16(RIX.Height);
-	}
 	fseeko(Splash,0,SEEK_END);
 	ActualSize = ftello(Splash);
 	fseeko(Splash,10,SEEK_SET);

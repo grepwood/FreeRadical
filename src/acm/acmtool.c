@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <string.h>
+#include <dataio/BigEndian.h>
 
 #include "libacm.h"
 
@@ -48,6 +49,7 @@ static void show_header(const char *fn, ACMStream *acm)
 	tmp = acm_time_total(acm) / 1000;
 	s = tmp % 60;
 	m = tmp / 60;
+	printf("acm_time_total(acm) returned %i\n",acm_time_total(acm));
 	printf("%s: Length:%2d:%02d Chans:%d(%d) Freq:%d A:%d/%d kbps:%d\n",
 			fn, m, s, acm_channels(acm), acm->info.acm_channels,
 			acm_rate(acm), inf->acm_level, inf->acm_rows, kbps);
@@ -188,11 +190,13 @@ static char * makefn(const char *fn, const char *ext)
 		p += len; \
 	} while (0)
 
-static int write_wav_header(FILE *f, ACMStream *acm)
+static int write_wav_header(void *f, ACMStream *acm, uint8_t mode)
 {
-	unsigned char hdr[50], *p = hdr;
+	unsigned char hdr[44], *p = hdr;
 	int res;
 	unsigned datalen = acm_pcm_total(acm) * ACM_WORD * acm_channels(acm);
+	char * mem;
+	int result = 0;
 	
 	int code = 1;
 	unsigned n_channels = acm_channels(acm);
@@ -219,14 +223,95 @@ static int write_wav_header(FILE *f, ACMStream *acm)
 	put_data(p, "data", 4);
 	put_dword(p, datalen);
 
-	res = fwrite(hdr, 1, p - hdr, f);
-	if (res != p - hdr)
-		return -1;
+	if(mode || 254 )
+		result = -1;
 	else
-		return 0;
+		switch(mode) {
+			case 0:
+				res = fwrite(hdr,1,p-hdr,(FILE*)f);
+				if(res != p-hdr)
+					result = -2;
+				break;
+			case 1:
+				mem = memcpy(f,hdr,p-hdr);
+				if(mem != f)
+					result = -4;
+				break;
+		}
+	return result;
 }
 
-static void decode_file(const char *fn, const char *fn2)
+char * decode_file_to_mem(const char *fn, uint8_t cf_force_chans, uint32_t * wavsize) {
+	ACMStream * acm;
+	char *buf;
+	uint32_t res, res2, buflen, err;
+	FILE *fo;
+	uint32_t bytes_done = 0;
+	char * result;
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	*wavsize = FR_bswap32(*wavsize);
+#endif
+	*wavsize <<= (cf_force_chans) ? cf_force_chans : 1;
+/*	if(cf_force_chans) *wavsize <<= cf_force_chans;
+	else *wavsize <<= 1;
+*/	*wavsize += 44;
+	printf("Prediction complete. File size will be %u\n",*wavsize);
+/* The rest of the function */
+	if ((err = acm_open_file(&acm,fn,cf_force_chans)) < 0) {
+		fprintf(stderr, "%s: %s\n", fn, acm_strerror(err));
+		return NULL;
+	}
+	result = (char*)malloc(*wavsize);
+	if ((err = write_wav_header(fo, acm)) < 0) {
+		fclose(fo);
+		acm_close(acm);
+		return NULL;
+	}
+	buflen = 16384;
+	buf = (char*)malloc(buflen);
+
+	total_bytes = acm_pcm_total(acm) * acm_channels(acm) * ACM_WORD;
+
+	while (bytes_done < total_bytes) {
+		res = acm_read_loop(acm, buf, buflen>>1, 0,2,1);
+		if (res == 0)
+			break;
+		if (res > 0) {
+			res2 = fwrite(buf, 1, res, fo);
+			if (res2 != res) {
+				fputs("memory: write error",stderr);
+				break;
+			}
+			bytes_done += res;
+		} else {
+			fprintf(stderr, "%s: %s\n", fn, acm_strerror(res));
+			break;
+		}
+	}
+
+	memset(buf, 0, buflen);
+	if (bytes_done < total_bytes) {
+		fprintf(stderr, "%s: adding filler_samples: %d\n",fn, total_bytes - bytes_done); }
+	while (bytes_done < total_bytes) {
+		int bs;
+		if (bytes_done + buflen > total_bytes) {
+			bs = total_bytes - bytes_done;
+		} else {
+			bs = buflen;
+		}
+		res2 = fwrite(buf, 1, bs, fo);
+		if (res2 != bs)
+			break;
+		bytes_done += bs;
+	}
+
+	acm_close(acm);
+	fclose(fo);
+	free(buf);
+	return result;
+}
+
+void decode_file(const char *fn, const char *fn2)
 {
 	ACMStream *acm;
 	char *buf;
@@ -264,7 +349,7 @@ static void decode_file(const char *fn, const char *fn2)
 			return;
 		}
 	}
-	buflen = 16*1024;
+	buflen = 16384;
 	buf = (char*)malloc(buflen);
 
 	total_bytes = acm_pcm_total(acm) * acm_channels(acm) * ACM_WORD;
@@ -402,8 +487,7 @@ static void usage(int err)
 	exit(err);
 }
 
-int main(int argc, char *argv[])
-{
+int notmain(int argc, char *argv[]) {
 	int c, i;
 	char *fn, *fn2 = NULL;
 	int cmd_decode = 0;

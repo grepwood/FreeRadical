@@ -44,10 +44,7 @@ char * GetFileName(FILE * Map, unsigned char version) {
 
 static void FillMapHeader(struct map_header * result, FILE * Map) {
 	uint32_t buf;
-	fread(buf,4,1,Map);
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	buf = FR_bswap32(buf);
-#endif
+	size_t i = FR_fread_b32(&buf,4,1,Map);
 	result->filename = GetFileName(Map,result.version);
 	fread(result->default_player_position,4,1,Map);
 	fread(result->default_elevation,4,1,Map);
