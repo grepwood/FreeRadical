@@ -9,7 +9,7 @@
 #include <libgen.h>
 #include <sys/param.h> /* for MAXPATHLEN */
 #include "dataio/dat.h"
-#include "dataio/BigEndian.h"
+#include "dataio/endian.h"
 
 /* Copyright 2015 Michael Dec <grepwood@sucs.org>
  * This has only been tested on Linux. Run on Windows at your own risk!
@@ -100,27 +100,39 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 	uint16_t blockDesc;
 	uint32_t TotalSize = 0;
 	char * fpath = compound_strings(path,result,file->Name,file->NameLength);
-	result = fseek(fp,file->Offset,SEEK_SET);
-	b = malloc(file->OrigSize);
-	if(file->PackedSize && file->Attributes == LZSS) {
-		while(TotalSize < file->PackedSize) {
-			e = FR_fread_b16(&blockDesc,fp);
-			if(blockDesc & 0x8000) {
-				TotalSize += (blockDesc & 0x7fff);
-				e = fread(b+TotalSize,blockDesc & 0x7fff,1,fp); if (!e) puts("Failed fread!");
-			} else {
-				a = malloc(blockDesc & 0x7fff);
-				e = fread(a,blockDesc & 0x7fff,1,fp); if(!e) puts("Failed fread!");
-				TotalSize += LZSSDecode(a,blockDesc & 0x7fff,b+TotalSize);
-				free(a);
+/* Debug section */
+#ifdef DEBUG
+	printf("File: %s\n",file->Name);
+	printf("OrigSize: %i\n",file->OrigSize);
+	printf("PackedSize: %i\n",file->PackedSize);
+	printf("Offset: 0x%x\n",file->Offset);
+#endif /* DEBUG */
+	if(file->OrigSize) {
+		result = fseek(fp,file->Offset,SEEK_SET);
+		b = malloc(file->OrigSize);
+		if(file->PackedSize && file->Attributes == LZSS) {
+			while(TotalSize < file->OrigSize) {
+				e = FR_fread_b16(&blockDesc,fp);
+				if(blockDesc & 0x8000) {
+					blockDesc &= 0x7fff;
+					e = fread(b+TotalSize,blockDesc,1,fp); if (!e) puts("Failed fread!");
+					TotalSize += blockDesc;
+				} else {
+					a = malloc(blockDesc);
+					e = fread(a,blockDesc,1,fp); if(!e) puts("Failed fread!");
+					TotalSize += LZSSDecode(a,blockDesc,b+TotalSize);
+					free(a);
+				}
 			}
+		} else {
+			e = fread(b,file->OrigSize,1,fp);
+			if(!e) puts("Failed fread!");
 		}
-	} else {
-		e = fread(b,file->OrigSize,1,fp);
-		if(!e) puts("Failed fread!");
 	}
 	fo = fopen(fpath,"wb");
-	result = fwrite(b,file->OrigSize,1,fo);
+	if(fo == NULL) puts("Couldn't open file for writing!");
+	else	if(file->OrigSize) result = fwrite(b,file->OrigSize,1,fo);
+			else result = 1;
 	fclose(fo);
 	free(b);
 	free(fpath);
@@ -135,19 +147,18 @@ void f1undat(struct fr_dat_handler_t * dat, const char * path) {
 	uint32_t i, j;
 	int e;	
 	for(e = i = 0; i < fo1->DirectoryCount && !e; ++i, free(a)) {
+//	for(e = 0, i = 55; i < 56 && !e; ++i, free(a)) {
 		a = compound_strings(path,pathlen,fo1->Directory[i].DirName,fo1->Directory[i].Length);
 #ifndef WINDOWS
 		unixify_path(a);
 #endif
 		e = mkpath(a,0755);
-		printf("Files to extract: %u\n",fo1->Directory[i].FileCount);
+		printf("Extracting directory %i\n",i);
+//		printf("Files to extract: %u\n",fo1->Directory[i].FileCount);
 		for(j = 0; j < fo1->Directory[i].FileCount && !e; ++j) {
-/*			if(j == 0 || j == 17 || j == 38) {
-*/				printf("Extracting file %i\n",j);
-				e = f1unpack(&fo1->Directory[i].File[j],a,dat->fp);
-				if(e) printf("e: %i\n",e);
-/*			}
-*/		}
+			e = f1unpack(&fo1->Directory[i].File[j],a,dat->fp);
+			if(e) printf("e: %i\n",e);
+		}
 	}
 }
 
