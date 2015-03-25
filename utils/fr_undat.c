@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <zlib.h>
 #include <sys/param.h> /* for MAXPATHLEN */
 #include "dataio/dat.h"
 #include "dataio/endian.h"
@@ -44,11 +45,19 @@ out:
 }
 
 char * compound_strings(const char * a, unsigned char strlen_a, const char * b, unsigned char strlen_b) {
-	char * c = malloc(strlen_a+strlen_b+2);
-	memcpy(c,a,strlen_a);
-	c[strlen_a] = OS_SLASH;
-	memcpy(c+strlen_a+1,b,strlen_b);
-	c[strlen_a+strlen_b+1] = 0;
+	char * c = NULL;
+	if(a[strlen_a-1] != OS_SLASH) {
+		c = malloc(strlen_a+strlen_b+2);
+		memcpy(c,a,strlen_a);
+		c[strlen_a] = OS_SLASH;
+		memcpy(c+strlen_a+1,b,strlen_b);
+		c[strlen_a+strlen_b+1] = 0;
+	} else {
+		c = malloc(strlen_a+strlen_b+1);
+		memcpy(c,a,strlen_a);
+		memcpy(c+strlen_a,b,strlen_b);
+		c[strlen_a+strlen_b] = 0;
+	}
 	return c;
 }
 
@@ -89,6 +98,60 @@ int LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
 	}
 	free(text_buf);
 	return dwOutputIndex;
+}
+
+int ungz(char * dst, const uint32_t dstLen, char * src, const uint32_t srcLen) {
+	int err = -1;
+	int ret = -1;
+	z_stream strm  = {0};
+	strm.total_in  = strm.avail_in  = srcLen;
+	strm.total_out = strm.avail_out = dstLen;
+	strm.next_in   = src;
+	strm.next_out  = dst;
+	strm.zalloc = Z_NULL;
+	strm.zfree  = Z_NULL;
+	strm.opaque = Z_NULL;
+	err = inflateInit2(&strm, 47); //15 window bits, and the +32 tells zlib to to detect if using gzip or zlib
+	if (err == Z_OK) {
+		err = inflate(&strm, Z_FINISH);
+		if (err == Z_STREAM_END) ret = strm.total_out;
+		else {
+			inflateEnd(&strm);
+			return err;
+		}
+	} else {
+		inflateEnd(&strm);
+		return err;
+	}
+	inflateEnd(&strm);
+	return ret;
+}
+
+int f2unpack(struct fo2_file_t * file, const char * path, FILE * fp) {
+	FILE * fo = NULL;
+	char * a = NULL;
+	char * b = NULL;
+	uint32_t TotalSize = 0;
+	int result;
+	size_t e;
+	if(file->OrigSize) {
+		result = fseek(fp,file->Offset,SEEK_SET);
+		b = malloc(file->OrigSize);
+		if(file->PackedSize && file->Attributes == THE_ZLIB) {
+			a = malloc(file->PackedSize);
+			e = fread(a,file->PackedSize,1,fp);
+			ungz(b,file->OrigSize,a,file->PackedSize);
+			free(a);
+		} else e = fread(b,file->OrigSize,1,fp);
+	}
+	fo = fopen(path,"wb");
+	if(fo == NULL) puts("Couldn't open file for writing!");
+	else	if(file->OrigSize) result = fwrite(b,file->OrigSize,1,fo);
+			else result = 1;
+	fclose(fo);
+	free(b);
+	if(result == 1) return 0;
+	else return -1;
 }
 
 int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
@@ -140,6 +203,35 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 	else return -1;
 }
 
+void cutoff_filename(char * path, uint32_t len) {
+	while(path[len] != OS_SLASH) --len;
+	path[len] = 0;
+}
+
+void bring_back_filename(char * b) {
+	uint32_t i = 0;
+	while(b[i]) ++i;
+	b[i] = OS_SLASH;
+}
+
+void f2undat(struct fr_dat_handler_t * dat, const char * path) {
+	char * b = NULL;
+	struct fo2_dat_t * fo2 = dat->proxy;
+	uint32_t i;
+	int e;
+	for(i = 0; i < fo2->FilesTotal; ++i, free(b)) {
+#ifndef WINDOWS
+		unixify_path(fo2->File[i].Name);
+#endif
+		b = compound_strings(path,strlen(path),fo2->File[i].Name,fo2->File[i].NameLength);
+		cutoff_filename(b,strlen(b));
+		e = mkpath(b,0755);
+		bring_back_filename(b);
+		e = f2unpack(&fo2->File[i],b,dat->fp);
+		if(e) printf("e: %i\n",e);
+	}
+}
+
 void f1undat(struct fr_dat_handler_t * dat, const char * path) {
 	char * a = NULL;
 	const size_t pathlen = strlen(path);
@@ -170,7 +262,7 @@ int main(int argc, char **argv) {
 	switch(dat.control & MULTIVERSION) {
 		case 0: puts("Not a Fallout archive"); break;
 		case 1: f1undat(&dat,argv[2]); break;
-		case 2: fputs("Not implemented yet.\n",stderr); break;
+		case 2: f2undat(&dat,argv[2]); break;
 		case 4: fputs("Not implemented yet.\n",stderr); break;
 	}
 	FR_CloseDAT(&dat);
