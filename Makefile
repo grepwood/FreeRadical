@@ -1,8 +1,8 @@
 CC=gcc
 #CFLAGS=-O2 -Iinclude -g3
 #CFLAGS=-O2 -Iinclude -g3
-#CFLAGS=-O2 -DBUILTIN_POPCNT -march=native -mtune=native -Iinclude -g3
-CFLAGS=-O0 -march=native -mtune=native -Iinclude -g3
+CFLAGS=-O2 -DBUILTIN_POPCNT -march=native -mtune=native -Iinclude -g3
+#CFLAGS=-O0 -march=native -mtune=native -Iinclude -g3
 WFLAGS=-Wall -Wextra -pedantic
 LDFLAGS=
 
