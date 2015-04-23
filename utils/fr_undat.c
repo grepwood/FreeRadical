@@ -71,7 +71,7 @@ int LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
 	uint16_t flags = 0;
 	int dwInputCurrent = 0;
 	int dwOutputIndex = 0;
-	char * text_buf = malloc(N+F-1);
+	char text_buf[N+F-1];
 	memset(text_buf,' ',dictionaryIndex);
 	for ( ; ; ) {
 		if (((flags >>= 1) & 256) == 0) {
@@ -96,7 +96,6 @@ int LZSSDecode(char* buffer, int dwInputLength, char* arOut) {
 			}
 		}
 	}
-	free(text_buf);
 	return dwOutputIndex;
 }
 
@@ -106,12 +105,12 @@ int ungz(char * dst, const uint32_t dstLen, char * src, const uint32_t srcLen) {
 	z_stream strm  = {0};
 	strm.total_in  = strm.avail_in  = srcLen;
 	strm.total_out = strm.avail_out = dstLen;
-	strm.next_in   = src;
-	strm.next_out  = dst;
+	strm.next_in   = (unsigned char *)src;
+	strm.next_out  = (unsigned char *)dst;
 	strm.zalloc = Z_NULL;
 	strm.zfree  = Z_NULL;
 	strm.opaque = Z_NULL;
-	err = inflateInit2(&strm, 47); //15 window bits, and the +32 tells zlib to to detect if using gzip or zlib
+	err = inflateInit2(&strm, 47); /* 15 window bits, and the +32 tells zlib to to detect if using gzip or zlib */
 	if (err == Z_OK) {
 		err = inflate(&strm, Z_FINISH);
 		if (err == Z_STREAM_END) ret = strm.total_out;
@@ -131,20 +130,30 @@ int f2unpack(struct fo2_file_t * file, const char * path, FILE * fp) {
 	FILE * fo = NULL;
 	char * a = NULL;
 	char * b = NULL;
-	uint32_t TotalSize = 0;
 	int result;
 	size_t e;
+/* Debug section */
+#ifdef DEBUG
+	printf("File: %s\n",file->Name);
+	printf("OrigSize: %i\n",file->OrigSize);
+	printf("PackedSize: %i\n",file->PackedSize);
+	printf("Offset: 0x%x\n",file->Offset);
+#endif /* DEBUG */
 	if(file->OrigSize) {
-		result = fseek(fp,file->Offset,SEEK_SET);
+		result = fseeko(fp,file->Offset,SEEK_SET);
 		b = malloc(file->OrigSize);
 		if(file->PackedSize && file->Attributes == THE_ZLIB) {
 			a = malloc(file->PackedSize);
-			e = fread(a,file->PackedSize,1,fp);
+			e = fread(a,file->PackedSize,1,fp); if (!e) puts("Failed fread!");
 			ungz(b,file->OrigSize,a,file->PackedSize);
 			free(a);
-		} else e = fread(b,file->OrigSize,1,fp);
+		} else {
+			e = fread(b,file->OrigSize,1,fp);
+			if (!result) puts("Failed fread!");
+		}
 	}
 	fo = fopen(path,"wb");
+	result = 0;
 	if(fo == NULL) puts("Couldn't open file for writing!");
 	else	if(file->OrigSize) result = fwrite(b,file->OrigSize,1,fo);
 			else result = 1;
@@ -155,8 +164,7 @@ int f2unpack(struct fo2_file_t * file, const char * path, FILE * fp) {
 }
 
 int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
-	int result = strlen(path);
-	size_t e;
+	size_t result = strlen(path);
 	FILE * fo = NULL;
 	char * a = NULL;
 	char * b = NULL;
@@ -175,21 +183,21 @@ int f1unpack(struct fo1_file_t * file, const char * path, FILE * fp) {
 		b = malloc(file->OrigSize);
 		if(file->PackedSize && file->Attributes == LZSS) {
 			while(TotalSize < file->OrigSize) {
-				e = FR_fread_b16(&blockDesc,fp);
+				result = FR_fread_b16(&blockDesc,fp);
 				if(blockDesc & 0x8000) {
 					blockDesc &= 0x7fff;
-					e = fread(b+TotalSize,blockDesc,1,fp); if (!e) puts("Failed fread!");
+					result = fread(b+TotalSize,blockDesc,1,fp); if (!result) puts("Failed fread!");
 					TotalSize += blockDesc;
 				} else {
 					a = malloc(blockDesc);
-					e = fread(a,blockDesc,1,fp); if(!e) puts("Failed fread!");
+					result = fread(a,blockDesc,1,fp); if(!result) puts("Failed fread!");
 					TotalSize += LZSSDecode(a,blockDesc,b+TotalSize);
 					free(a);
 				}
 			}
 		} else {
-			e = fread(b,file->OrigSize,1,fp);
-			if(!e) puts("Failed fread!");
+			result = fread(b,file->OrigSize,1,fp);
+			if(!result) puts("Failed fread!");
 		}
 	}
 	fo = fopen(fpath,"wb");
@@ -237,16 +245,13 @@ void f1undat(struct fr_dat_handler_t * dat, const char * path) {
 	const size_t pathlen = strlen(path);
 	struct fo1_dat_t * fo1 = dat->proxy;
 	uint32_t i, j;
-	int e;	
+	int e;
 	for(e = i = 0; i < fo1->DirectoryCount && !e; ++i, free(a)) {
-//	for(e = 0, i = 55; i < 56 && !e; ++i, free(a)) {
-		a = compound_strings(path,pathlen,fo1->Directory[i].DirName,fo1->Directory[i].Length);
 #ifndef WINDOWS
-		unixify_path(a);
+		unixify_path(fo1->Directory[i].DirName);
 #endif
+		a = compound_strings(path,pathlen,fo1->Directory[i].DirName,fo1->Directory[i].Length);
 		e = mkpath(a,0755);
-		printf("Extracting directory %i\n",i);
-//		printf("Files to extract: %u\n",fo1->Directory[i].FileCount);
 		for(j = 0; j < fo1->Directory[i].FileCount && !e; ++j) {
 			e = f1unpack(&fo1->Directory[i].File[j],a,dat->fp);
 			if(e) printf("e: %i\n",e);

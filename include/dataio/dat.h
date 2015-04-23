@@ -10,7 +10,7 @@
 /* Compression flags */
 #define PLAINTEXT	0
 #define LZSS		1
-#define ZLIB		2
+#define THE_ZLIB	2
 #define LZMA2		128
 
 #include <stdio.h>
