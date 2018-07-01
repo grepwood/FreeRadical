@@ -259,9 +259,14 @@ void f1undat(struct fr_dat_handler_t * dat, const char * path) {
 	}
 }
 
+int rtfm(char * exe) {
+	printf("Usage: %s file.dat output-directory\n",exe);
+	return 1;
+}
+
 int main(int argc, char **argv) {
 	struct fr_dat_handler_t dat;
-	if(argc < 3) return 1;
+	if(argc < 3) return rtfm(argv[0]);
 	FR_OpenDAT(argv[1],&dat);
 	FR_ReadDAT(&dat);
 	switch(dat.control & MULTIVERSION) {

@@ -1,8 +1,5 @@
 CC=gcc
-#CFLAGS=-O2 -Iinclude -g3
-#CFLAGS=-O2 -Iinclude -g3
-CFLAGS=-O2 -DBUILTIN_POPCNT -march=native -mtune=native -Iinclude -g3
-#CFLAGS=-O0 -march=native -mtune=native -Iinclude -g3
+CFLAGS=-O2 -Iinclude -ggdb
 WFLAGS=-Wall -Wextra -pedantic
 LDFLAGS=
 
@@ -11,6 +8,3 @@ undat:
 
 clean:
 	rm -f undat
-
-release:
-	strip undat

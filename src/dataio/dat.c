@@ -3,11 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
-#include <lzss.h>
 
 #include "dataio/dat.h"
 #include "dataio/text.h"
-#include "dataio/BigEndian.h"
+#include "dataio/endian.h"
 
 unsigned char DATX_MAGIC[8] = {0x66,0x72,0x67,0x77,0x54,0x78,0x42,0xF0};
 
