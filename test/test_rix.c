@@ -24,9 +24,12 @@ int main(int argc, char * argv[]) {
 		exit(64);
 	}
 	fp = fopen(argv[1],"rb");
-	if(fp != NULL) {
-		RIX_error = IsFalloutRIX(fp);
+	if(fp == NULL) {
+		printf("main: could not open file %s\n",argv[1]);
+		fclose(fp);
+		return -1;
 	}
+	RIX_error = IsFalloutRIX(fp);
 	if(RIX_error == 63) {
 		/* Preparing */
 		if(SDL_Init(SDL_INIT_EVERYTHING)) {
